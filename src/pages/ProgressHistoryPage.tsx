@@ -91,14 +91,6 @@ export const ProgressHistoryPage: React.FC<ProgressHistoryPageProps> = ({ onNavi
         )}
       </div>
 
-      {/* Demo Banner */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Dual-Test Comparison Tool:</strong> Select checkboxes next to any two examinations to launch a forensic side-by-side comparison of scores, subject deltas, and time management.
-        </span>
-      </div>
-
       {/* Search Bar */}
       <div className="card" style={{ padding: '14px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
@@ -192,7 +184,7 @@ export const ProgressHistoryPage: React.FC<ProgressHistoryPageProps> = ({ onNavi
                       </td>
                       <td>
                         <button
-                          onClick={() => onNavigate('results')}
+                          onClick={() => onNavigate('results', m.attemptId || 'mock-8-baseline')}
                           className="btn btn-secondary btn-sm"
                           style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
                         >

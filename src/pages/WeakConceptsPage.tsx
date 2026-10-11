@@ -12,9 +12,12 @@ import {
   CalendarCheck,
   Bot,
   ChevronRight,
-  Info
+  Info,
+  CheckCircle2,
+  Clock,
+  HelpCircle
 } from 'lucide-react';
-import { TopicPerformance, Subject, Priority } from '../types';
+import { TopicPerformance, Subject, Priority, Question } from '../types';
 import { weakConceptsService } from '../services/weakConceptsService';
 import { studyPlannerService } from '../services/studyPlannerService';
 import { Modal } from '../components/common/Modal';
@@ -32,8 +35,9 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
   const [selectedPriority, setSelectedPriority] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'accuracy-asc' | 'accuracy-desc' | 'attempts-desc' | 'time-desc' | 'priority'>('priority');
 
-  // Selected Topic for Detail Drawer/Modal
+  // Selected Topic for Detail Modal
   const [activeTopic, setActiveTopic] = useState<TopicPerformance | null>(null);
+  const [topicQuestions, setTopicQuestions] = useState<Question[]>([]);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
 
   const loadTopics = () => {
@@ -51,19 +55,25 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
     loadTopics();
   }, [selectedSubject, selectedPriority, searchQuery, sortBy]);
 
+  const handleOpenTopic = async (topic: TopicPerformance) => {
+    setActiveTopic(topic);
+    const qs = await weakConceptsService.getSampleQuestionsForTopic(topic.topic);
+    setTopicQuestions(qs);
+  };
+
   const handleAddTopicToPlanner = async (topic: TopicPerformance) => {
     await studyPlannerService.addTask({
       day: 'Tue',
       subject: topic.subject,
       topic: topic.topic,
-      title: `Dedicated revision & 20 problem practice on ${topic.topic}`,
+      title: `Dedicated revision & 20 timed problem drills on ${topic.topic}`,
       durationMinutes: 60,
       taskType: 'Concept Revision',
       priority: topic.priority,
       reason: topic.reason
     });
     setAddedNotice(`"${topic.topic}" added to your Study Planner!`);
-    setTimeout(() => setAddedNotice(null), 3000);
+    setTimeout(() => setAddedNotice(null), 3500);
   };
 
   return (
@@ -74,16 +84,8 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
           Weak Concepts Priority Matrix
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Evidence-based diagnosis isolating conceptual bottlenecks by accuracy, solving time, and penalty frequency.
+          Evidence-based diagnosis isolating conceptual bottlenecks by accuracy, attempt volume, and solving time.
         </p>
-      </div>
-
-      {/* Demo Banner */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Demonstration Priority Engine:</strong> Topics are classified into Priority tiers using transparent empirical rules (Accuracy &lt; 50% with high attempt volume = High Priority). Click any row to inspect subtopic diagnostics or add tasks to your study planner.
-        </span>
       </div>
 
       {addedNotice && (
@@ -205,7 +207,7 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
                       <tr
                         key={t.id}
                         style={{ cursor: 'pointer' }}
-                        onClick={() => setActiveTopic(t)}
+                        onClick={() => handleOpenTopic(t)}
                       >
                         <td>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.topic}</div>
@@ -258,7 +260,7 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button
-                              onClick={() => setActiveTopic(t)}
+                              onClick={() => handleOpenTopic(t)}
                               className="btn btn-secondary btn-sm"
                               style={{ padding: '4px 8px', fontSize: '11px' }}
                             >
@@ -288,13 +290,13 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
       <Modal
         isOpen={activeTopic !== null}
         onClose={() => setActiveTopic(null)}
-        title={activeTopic ? `Diagnostic: ${activeTopic.topic}` : 'Topic Details'}
-        maxWidth="640px"
+        title={activeTopic ? `Diagnostic Autopsy: ${activeTopic.topic}` : 'Topic Details'}
+        maxWidth="680px"
       >
         {activeTopic && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {/* Header info */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-default)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="badge badge-default">{activeTopic.subject}</span>
                 <span
@@ -306,7 +308,7 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
                 </span>
               </div>
               <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                Accuracy: <strong style={{ color: activeTopic.accuracy < 50 ? 'var(--danger)' : 'var(--success)' }}>{activeTopic.accuracy}%</strong> ({activeTopic.attemptCount} attempts)
+                Accuracy: <strong style={{ color: activeTopic.accuracy < 50 ? 'var(--danger)' : 'var(--success)' }}>{activeTopic.accuracy}%</strong> ({activeTopic.attemptCount} attempts • {activeTopic.avgTimeSeconds}s avg)
               </div>
             </div>
 
@@ -345,12 +347,49 @@ export const WeakConceptsPage: React.FC<WeakConceptsPageProps> = ({ onNavigate }
               </div>
             </div>
 
+            {/* Sample Question Inspection */}
+            {topicQuestions.length > 0 && (
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  Sample Examination Question Pattern:
+                </h4>
+                {topicQuestions.slice(0, 1).map(q => (
+                  <div key={q.id} style={{ padding: '14px', borderRadius: '8px', border: '1px solid var(--border-default)', backgroundColor: 'var(--bg-surface-subtle)', fontSize: '12px' }}>
+                    <p style={{ fontWeight: 500, marginBottom: '10px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                      {q.statement}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '10px' }}>
+                      {q.options.map(opt => (
+                        <div
+                          key={opt.id}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            backgroundColor: opt.id === q.correctOptionId ? 'var(--success-bg)' : 'var(--bg-surface)',
+                            border: `1px solid ${opt.id === q.correctOptionId ? 'var(--success-border)' : 'var(--border-subtle)'}`,
+                            color: opt.id === q.correctOptionId ? 'var(--success)' : 'var(--text-secondary)',
+                            fontWeight: opt.id === q.correctOptionId ? 600 : 400
+                          }}
+                        >
+                          <strong>{opt.id}.</strong> {opt.text} {opt.id === q.correctOptionId && '✓ (Key)'}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      <strong>Solution Note:</strong> {q.explanation}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid var(--border-default)' }}>
               <button
                 onClick={() => {
+                  const topicName = activeTopic.topic;
                   setActiveTopic(null);
-                  onNavigate('ai-coach', activeTopic.topic);
+                  onNavigate('ai-coach', topicName);
                 }}
                 className="btn btn-secondary"
                 style={{ gap: '6px' }}

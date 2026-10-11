@@ -13,7 +13,10 @@ import {
   Sparkles,
   ChevronRight,
   Flame,
-  FileCheck2
+  FileCheck2,
+  Award,
+  Zap,
+  Target
 } from 'lucide-react';
 import { NavPage } from '../components/layout/Sidebar';
 import { StatCard } from '../components/common/StatCard';
@@ -22,7 +25,9 @@ import { ProgressBar } from '../components/common/ProgressBar';
 import { DEMO_METRICS, SUBJECT_PERFORMANCES, TOPIC_PERFORMANCES, HISTORICAL_MOCKS } from '../data/demoData';
 import { mockTestService } from '../services/mockTestService';
 import { studyPlannerService } from '../services/studyPlannerService';
-import { TestAttemptResult, StudyTask } from '../types';
+import { analyticsService, AnalyticsData } from '../services/analyticsService';
+import { weakConceptsService } from '../services/weakConceptsService';
+import { TestAttemptResult, StudyTask, TopicPerformance } from '../types';
 
 interface OverviewPageProps {
   onNavigate: (page: NavPage, topicContext?: string) => void;
@@ -34,32 +39,64 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   studentName = 'Aarav'
 }) => {
   const [latestAttempt, setLatestAttempt] = useState<TestAttemptResult | null>(null);
+  const [allAttempts, setAllAttempts] = useState<TestAttemptResult[]>([]);
   const [recentTasks, setRecentTasks] = useState<StudyTask[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [priorityTopics, setPriorityTopics] = useState<TopicPerformance[]>([]);
 
   useEffect(() => {
-    mockTestService.getLatestAttempt().then(att => setLatestAttempt(att));
-    studyPlannerService.getTasks().then(tasks => setRecentTasks(tasks.slice(0, 4)));
+    loadOverviewData();
   }, []);
 
-  const chartData: DataPoint[] = HISTORICAL_MOCKS.map(m => ({
-    label: m.mockName.replace('JEE Main ', '').replace(' (Diagnostic)', '').replace(' (Sectional)', '').replace(' (Latest Baseline)', ''),
-    value: m.score,
-    subLabel: `${m.date} • ${m.accuracy}% accuracy`,
-    accuracy: m.accuracy
-  }));
+  const loadOverviewData = async () => {
+    const latest = await mockTestService.getLatestAttempt();
+    const attempts = await mockTestService.getAllAttempts();
+    const tasks = await studyPlannerService.getTasks();
+    const anData = await analyticsService.getAnalytics({ subject: 'All' });
+    const topics = await weakConceptsService.getTopics({ sortBy: 'priority' });
 
-  // If student submitted a test in this session, append to chart
-  if (latestAttempt) {
-    chartData.push({
-      label: 'Session Attempt',
-      value: latestAttempt.score,
-      subLabel: `Today • ${latestAttempt.accuracy}% accuracy`,
-      accuracy: latestAttempt.accuracy
-    });
-  }
+    setLatestAttempt(latest);
+    setAllAttempts(attempts);
+    setRecentTasks(tasks.slice(0, 4));
+    setAnalytics(anData);
+    setPriorityTopics(topics);
+  };
 
+  const handleToggleTask = async (taskId: string) => {
+    const updated = await studyPlannerService.toggleTask(taskId);
+    setRecentTasks(updated.slice(0, 4));
+  };
+
+  // Build Score progression chart data
+  const chartData: DataPoint[] = analytics
+    ? analytics.scoreProgression.map(m => ({
+        label: m.mockName.replace('JEE Main ', '').replace(' (Diagnostic)', '').replace(' (Sectional)', '').replace(' (Latest Baseline)', ''),
+        value: m.score,
+        subLabel: `${m.date} • ${m.accuracy}% accuracy`,
+        accuracy: m.accuracy
+      }))
+    : HISTORICAL_MOCKS.map(m => ({
+        label: m.mockName.replace('JEE Main ', '').replace(' (Diagnostic)', '').replace(' (Sectional)', '').replace(' (Latest Baseline)', ''),
+        value: m.score,
+        subLabel: `${m.date} • ${m.accuracy}% accuracy`,
+        accuracy: m.accuracy
+      }));
+
+  // Calculations
+  const completedMocksCount = HISTORICAL_MOCKS.length + allAttempts.length;
   const latestScore = latestAttempt ? latestAttempt.score : DEMO_METRICS.latestMockScore;
-  const completedMocks = latestAttempt ? DEMO_METRICS.completedMocksCount + 1 : DEMO_METRICS.completedMocksCount;
+  const latestTotalMarks = latestAttempt ? latestAttempt.totalMarks : 300;
+
+  // Average score
+  const totalScoresSum = HISTORICAL_MOCKS.reduce((s, m) => s + m.score, 0) + allAttempts.reduce((s, a) => s + a.score, 0);
+  const averageScore = Math.round(totalScoresSum / completedMocksCount);
+
+  // Overall accuracy
+  const totalAccSum = HISTORICAL_MOCKS.reduce((s, m) => s + m.accuracy, 0) + allAttempts.reduce((s, a) => s + a.accuracy, 0);
+  const overallAccuracy = Math.round(totalAccSum / completedMocksCount);
+
+  // High priority constraint
+  const topConstraint = priorityTopics.find(t => t.priority === 'High') || priorityTopics[0];
 
   return (
     <div className="page-container">
@@ -80,11 +117,11 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               Welcome back, {studentName}
             </h2>
             <span className="badge badge-default" style={{ fontSize: '11px' }}>
-              Aspirant
+              Aspirant Workspace
             </span>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Your preparation, explained through data.
+            Understand your performance. Improve with evidence.
           </p>
         </div>
 
@@ -98,22 +135,22 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <span>Start Mock Test</span>
           </button>
           <button
-            onClick={() => onNavigate('analytics')}
+            onClick={() => onNavigate('results')}
             className="btn btn-secondary"
             style={{ gap: '6px' }}
           >
             <BarChart3 size={14} />
-            <span>View Performance</span>
+            <span>Latest Results</span>
+          </button>
+          <button
+            onClick={() => onNavigate('study-planner')}
+            className="btn btn-secondary"
+            style={{ gap: '6px' }}
+          >
+            <Compass size={14} />
+            <span>Study Planner</span>
           </button>
         </div>
-      </div>
-
-      {/* Demonstration Data Banner */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Prototype Mode:</strong> The metrics below reflect your sample demonstration baseline (Mock #8 Benchmark). Taking a mock test in this session will update your live score calculations.
-        </span>
       </div>
 
       {/* Metric Cards Row */}
@@ -127,29 +164,34 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
       >
         <StatCard
           label="Latest Mock Score"
-          value={`${latestScore}/300`}
-          trend={{ value: latestAttempt ? `Session Attempt: ${latestAttempt.score}` : '+8 vs Mock #7', isPositive: true }}
+          value={`${latestScore}/${latestTotalMarks}`}
+          trend={{
+            value: latestAttempt
+              ? `Session Test: ${latestAttempt.score}/${latestAttempt.totalMarks}`
+              : '+8 vs Mock #7',
+            isPositive: true
+          }}
           subValue="Target: 210/300"
           icon={<Flame size={16} />}
         />
         <StatCard
-          label="Average Score"
-          value={`${DEMO_METRICS.averageScore}/300`}
-          trend={{ value: 'Across 8 mocks', isNeutral: true }}
+          label="Average Mock Score"
+          value={`${averageScore}/300`}
+          trend={{ value: `Across ${completedMocksCount} mock assessments`, isNeutral: true }}
           subValue="Consistency Index: 88%"
           icon={<BarChart3 size={16} />}
         />
         <StatCard
           label="Overall Accuracy"
-          value={`${DEMO_METRICS.overallAccuracy}%`}
+          value={`${overallAccuracy}%`}
           trend={{ value: '+3% this month', isPositive: true }}
-          subValue="33 Correct / 20 Incorrect"
+          subValue="Calculated: Correct / (Correct + Incorrect)"
           icon={<TrendingUp size={16} />}
         />
         <StatCard
           label="Completed Mock Tests"
-          value={completedMocks}
-          trend={{ value: '1 pending this week', isNeutral: true }}
+          value={completedMocksCount}
+          trend={{ value: allAttempts.length > 0 ? `${allAttempts.length} in this session` : '1 scheduled this week', isNeutral: true }}
           subValue="Total 600+ questions attempted"
           icon={<FileCheck2 size={16} />}
         />
@@ -169,17 +211,17 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           <div style={{ maxWidth: '820px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <span className="badge badge-blue">Next Best Move</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Demonstration Intelligence Recommendation</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Empirical Diagnostic Recommendation</span>
             </div>
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-              Prioritize Integration revision, then complete a timed practice set.
+              {topConstraint ? `Prioritize ${topConstraint.topic} (${topConstraint.subject}) revision & practice.` : 'Review recent mock examination mistakes.'}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              The sample performance profile indicates that both accuracy (38%) and solving time (228 seconds/question) need attention. King's Property and algebraic substitution traps accounted for 6 missed marks in your latest mock.
+              {topConstraint?.reason || 'Calculus and Organic Chemistry mechanisms represent your highest-leverage missed marks. Addressing these bottlenecks lifts your score band faster than broad repetition.'}
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignSelf: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignSelf: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => onNavigate('study-planner')}
               className="btn btn-secondary btn-sm"
@@ -190,10 +232,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               onClick={() => onNavigate('mock-tests')}
               className="btn btn-primary btn-sm"
             >
-              Practice Topic
+              Practice Tests
             </button>
             <button
-              onClick={() => onNavigate('ai-coach', 'Integration')}
+              onClick={() => onNavigate('ai-coach', topConstraint?.topic || 'Mock Autopsy')}
               className="btn btn-subtle btn-sm"
               style={{ color: 'var(--accent-blue)', gap: '4px' }}
             >
@@ -222,12 +264,12 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <span>Score Progression Trajectory</span>
             </h3>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              8 Demonstration Benchmarks
+              {chartData.length} Completed Examinations
             </span>
           </div>
           <div className="card-body">
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-              Interactive score progression showing scores from 8 demonstration mock tests. Hover over points to view exact scores and accuracy.
+              Historical mock scores with target line at 210/300. Hover over data points to inspect individual test accuracy and dates.
             </p>
             <ScoreTrendChart data={chartData} targetScore={210} />
           </div>
@@ -240,35 +282,47 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <BarChart3 size={16} color="var(--accent-teal)" />
               <span>Subject Performance</span>
             </h3>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Mock #8</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {latestAttempt ? latestAttempt.testTitle.replace('JEE Main ', '') : 'Mock #8'}
+            </span>
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {SUBJECT_PERFORMANCES.map(subj => {
+            {(['Physics', 'Chemistry', 'Mathematics'] as const).map(subj => {
+              const latestData = latestAttempt?.subjectBreakdown[subj];
+              const baseData = SUBJECT_PERFORMANCES.find(s => s.subject === subj);
+
+              const accuracy = latestData ? latestData.accuracy : baseData?.accuracy || 60;
+              const score = latestData ? latestData.score : baseData?.score || 40;
+              const correct = latestData ? latestData.correct : baseData?.correctCount || 10;
+              const incorrect = latestData ? latestData.incorrect : baseData?.incorrectCount || 5;
+              const unattempted = latestData ? latestData.unattempted : baseData?.unattemptedCount || 10;
+              const avgTime = latestData ? latestData.avgTime : baseData?.avgTimeSeconds || 120;
+
               let barColor = '#2563eb';
-              if (subj.subject === 'Chemistry') barColor = '#0f766e';
-              if (subj.subject === 'Mathematics') barColor = '#d97706';
+              if (subj === 'Chemistry') barColor = '#0f766e';
+              if (subj === 'Mathematics') barColor = '#d97706';
 
               return (
-                <div key={subj.subject}>
+                <div key={subj}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
                     <div>
-                      <span style={{ fontWeight: 600, fontSize: '13px' }}>{subj.subject}</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>{subj}</span>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                        ({subj.correctCount}C / {subj.incorrectCount}I / {subj.unattemptedCount}U)
+                        ({correct}C / {incorrect}I / {unattempted}U)
                       </span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{subj.score}</span>
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{score}</span>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>/100</span>
                       <span style={{ fontSize: '12px', fontWeight: 600, marginLeft: '6px', color: barColor }}>
-                        ({subj.accuracy}%)
+                        ({accuracy}%)
                       </span>
                     </div>
                   </div>
-                  <ProgressBar value={subj.accuracy} color={barColor} height={8} />
+                  <ProgressBar value={accuracy} color={barColor} height={8} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    <span>Avg speed: {subj.avgTimeSeconds}s/q</span>
-                    <span>{subj.accuracy < 60 ? 'Needs Attention' : 'On Track'}</span>
+                    <span>{accuracy < 60 ? 'Needs Attention' : 'On Track'}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Pacing: ~{avgTime}s/q</span>
                   </div>
                 </div>
               );
@@ -284,11 +338,55 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                 color: 'var(--text-secondary)'
               }}
             >
-              <strong>Diagnostic Note:</strong> Mathematics accounts for 12 of your 20 incorrect answers. Elevating math accuracy to match Chemistry would yield +28 marks immediately.
+              <strong>Diagnostic Note:</strong> Mathematics remains your highest leverage growth area. Matching Chemistry's accuracy would elevate your score by ~28 marks immediately.
             </div>
           </div>
         </div>
       </div>
+
+      {/* Strongest vs Weakest Topics Row */}
+      {analytics && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Award size={18} color="var(--success)" />
+              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Strongest Mastery Topics</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {analytics.strongestTopics.map((top, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: '6px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600 }}>{top.topic}</div>
+                    <span className="badge badge-default" style={{ fontSize: '10px' }}>{top.subject}</span>
+                  </div>
+                  <strong style={{ color: 'var(--success)', fontSize: '13px' }}>{top.accuracy}%</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <AlertCircle size={18} color="var(--danger)" />
+              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Highest Urgency Weak Topics</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {analytics.weakestTopics.map((top, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: '6px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600 }}>{top.topic}</div>
+                    <span className="badge badge-default" style={{ fontSize: '10px' }}>{top.subject}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <strong style={{ color: 'var(--danger)', fontSize: '13px' }}>{top.accuracy}%</strong>
+                    <div style={{ fontSize: '10px', color: 'var(--danger)' }}>{top.priority} Priority</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recommended Focus Topics Row */}
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -320,7 +418,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {TOPIC_PERFORMANCES.slice(0, 4).map(topic => (
+                {priorityTopics.slice(0, 4).map(topic => (
                   <tr key={topic.id}>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{topic.topic}</div>
@@ -408,9 +506,43 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           <div className="card-body" style={{ padding: '12px 16px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* If session attempts exist, show them first */}
+              {allAttempts.slice(0, 2).map(att => (
+                <div
+                  key={att.id}
+                  onClick={() => onNavigate('results')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: '1.5px solid var(--accent-blue-border)',
+                    backgroundColor: 'var(--accent-blue-light)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                      {att.testTitle} <span className="badge badge-blue" style={{ fontSize: '10px' }}>Session</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {att.date} • {att.accuracy}% accuracy
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent-primary)' }}>
+                      {att.score}/{att.totalMarks}
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--accent-blue)', fontWeight: 600 }}>Review &rarr;</span>
+                  </div>
+                </div>
+              ))}
+
               {HISTORICAL_MOCKS.slice(-3).reverse().map(m => (
                 <div
                   key={m.id}
+                  onClick={() => onNavigate('results')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -418,7 +550,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                     padding: '8px 10px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-subtle)',
-                    backgroundColor: 'var(--bg-surface)'
+                    backgroundColor: 'var(--bg-surface)',
+                    cursor: 'pointer'
                   }}
                 >
                   <div>
@@ -480,15 +613,13 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div
-                      style={{
-                        color: t.completed ? 'var(--success)' : 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <CheckCircle2 size={16} />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={t.completed}
+                      onChange={() => handleToggleTask(t.id)}
+                      style={{ cursor: 'pointer', accentColor: 'var(--accent-blue)' }}
+                      title="Toggle completion"
+                    />
                     <div>
                       <div
                         style={{

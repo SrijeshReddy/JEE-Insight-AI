@@ -11,27 +11,34 @@ import {
   Trash2,
   Edit2,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  ListTodo
 } from 'lucide-react';
 import { StudyTask, Subject, Priority } from '../types';
 import { studyPlannerService } from '../services/studyPlannerService';
+import { weakConceptsService } from '../services/weakConceptsService';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { Modal } from '../components/common/Modal';
 
 export const StudyPlannerPage: React.FC = () => {
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [selectedDay, setSelectedDay] = useState<string>('All');
+  const [selectedSubject, setSelectedSubject] = useState<string>('All');
+  const [selectedPriority, setSelectedPriority] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'Completed'>('All');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingTask, setEditingTask] = useState<StudyTask | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // New task form state
-  const [newTaskSubject, setNewTaskSubject] = useState<Subject>('Mathematics');
-  const [newTaskTopic, setNewTaskTopic] = useState<string>('Integration (Definite & Indefinite)');
-  const [newTaskTitle, setNewTaskTitle] = useState<string>('');
-  const [newTaskDay, setNewTaskDay] = useState<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun'>('Mon');
-  const [newTaskDuration, setNewTaskDuration] = useState<number>(60);
-  const [newTaskType, setNewTaskType] = useState<StudyTask['taskType']>('Concept Revision');
-  const [newTaskPriority, setNewTaskPriority] = useState<Priority>('High');
+  // New / Edit task form state
+  const [formSubject, setFormSubject] = useState<Subject>('Mathematics');
+  const [formTopic, setFormTopic] = useState<string>('Integration (Definite & Indefinite)');
+  const [formTitle, setFormTitle] = useState<string>('');
+  const [formDay, setFormDay] = useState<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun'>('Mon');
+  const [formDuration, setFormDuration] = useState<number>(60);
+  const [formType, setFormType] = useState<StudyTask['taskType']>('Concept Revision');
+  const [formPriority, setFormPriority] = useState<Priority>('High');
 
   const loadTasks = async () => {
     const list = await studyPlannerService.getTasks();
@@ -52,24 +59,88 @@ export const StudyPlannerPage: React.FC = () => {
     setTasks([...updated]);
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const handleOpenEdit = (task: StudyTask) => {
+    setEditingTask(task);
+    setFormSubject(task.subject);
+    setFormTopic(task.topic);
+    setFormTitle(task.title);
+    setFormDay(task.day);
+    setFormDuration(task.durationMinutes);
+    setFormType(task.taskType);
+    setFormPriority(task.priority);
+    setShowAddModal(true);
+  };
+
+  const handleOpenAdd = () => {
+    setEditingTask(null);
+    setFormSubject('Mathematics');
+    setFormTopic('Integration (Definite & Indefinite)');
+    setFormTitle('');
+    setFormDay('Mon');
+    setFormDuration(60);
+    setFormType('Concept Revision');
+    setFormPriority('High');
+    setShowAddModal(true);
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!formTitle.trim()) return;
 
-    const updated = await studyPlannerService.addTask({
-      day: newTaskDay,
-      subject: newTaskSubject,
-      topic: newTaskTopic,
-      title: newTaskTitle.trim(),
-      durationMinutes: Number(newTaskDuration),
-      taskType: newTaskType,
-      priority: newTaskPriority,
-      reason: 'User created scheduled objective.'
-    });
+    if (editingTask) {
+      const updated = await studyPlannerService.updateTask(editingTask.id, {
+        subject: formSubject,
+        topic: formTopic,
+        title: formTitle.trim(),
+        day: formDay,
+        durationMinutes: Number(formDuration),
+        taskType: formType,
+        priority: formPriority
+      });
+      setTasks([...updated]);
+      setNotice('Task updated successfully.');
+    } else {
+      const updated = await studyPlannerService.addTask({
+        day: formDay,
+        subject: formSubject,
+        topic: formTopic,
+        title: formTitle.trim(),
+        durationMinutes: Number(formDuration),
+        taskType: formType,
+        priority: formPriority,
+        reason: 'User created scheduled objective.'
+      });
+      setTasks([...updated]);
+      setNotice('New study objective added.');
+    }
 
-    setTasks([...updated]);
-    setNewTaskTitle('');
     setShowAddModal(false);
+    setTimeout(() => setNotice(null), 3000);
+  };
+
+  const handleAutoGenerateFromWeakTopics = async () => {
+    const weak = await weakConceptsService.getTopics({ priority: 'High' });
+    if (weak.length === 0) return;
+
+    const days: ('Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri')[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    for (let i = 0; i < Math.min(3, weak.length); i++) {
+      const t = weak[i];
+      await studyPlannerService.addTask({
+        day: days[i % days.length],
+        subject: t.subject,
+        topic: t.topic,
+        title: `Auto-Planned: Focused drill & error autopsy on ${t.topic} (${t.accuracy}% acc)`,
+        durationMinutes: 75,
+        taskType: 'Concept Revision',
+        priority: 'High',
+        reason: t.reason
+      });
+    }
+
+    const refreshed = await studyPlannerService.getTasks();
+    setTasks([...refreshed]);
+    setNotice(`Auto-generated 3 high-priority objectives from your diagnostic weaknesses!`);
+    setTimeout(() => setNotice(null), 4000);
   };
 
   // Calculations
@@ -82,6 +153,8 @@ export const StudyPlannerPage: React.FC = () => {
   // Filtered tasks
   const displayedTasks = tasks.filter(t => {
     if (selectedDay !== 'All' && t.day !== selectedDay) return false;
+    if (selectedSubject !== 'All' && t.subject !== selectedSubject) return false;
+    if (selectedPriority !== 'All' && t.priority !== selectedPriority) return false;
     if (filterStatus === 'Pending' && t.completed) return false;
     if (filterStatus === 'Completed' && !t.completed) return false;
     return true;
@@ -111,23 +184,39 @@ export const StudyPlannerPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary"
-          style={{ gap: '6px' }}
-        >
-          <Plus size={15} />
-          <span>Add Custom Task</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleAutoGenerateFromWeakTopics}
+            className="btn btn-secondary"
+            style={{ gap: '6px' }}
+          >
+            <Zap size={15} color="var(--accent-blue)" />
+            <span>Auto-Plan From Weak Topics</span>
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="btn btn-primary"
+            style={{ gap: '6px' }}
+          >
+            <Plus size={15} />
+            <span>Add Custom Objective</span>
+          </button>
+        </div>
       </div>
 
-      {/* Demo Banner */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Interactive Study Engine:</strong> Toggle task checkboxes to observe live updates to your weekly completion rate and planned study minutes. Tasks reflect priorities identified in Mock #8 diagnostics.
-        </span>
-      </div>
+      {notice && (
+        <div
+          className="demo-banner"
+          style={{
+            backgroundColor: 'var(--success-bg)',
+            borderColor: 'var(--success-border)',
+            color: 'var(--success)',
+            marginBottom: '16px'
+          }}
+        >
+          {notice}
+        </div>
+      )}
 
       {/* Weekly Progress Overview Card */}
       <div
@@ -135,7 +224,7 @@ export const StudyPlannerPage: React.FC = () => {
         style={{
           padding: '20px 24px',
           marginBottom: '24px',
-          backgroundColor: '#ffffff'
+          backgroundColor: 'var(--bg-surface)'
         }}
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'center' }} className="planner-overview-grid">
@@ -165,44 +254,74 @@ export const StudyPlannerPage: React.FC = () => {
       <div
         className="card"
         style={{
-          padding: '14px 20px',
+          padding: '16px 20px',
           marginBottom: '20px',
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '14px'
+          flexDirection: 'column',
+          gap: '12px'
         }}
       >
-        {/* Day Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginRight: '4px' }}>
-            Day:
-          </span>
-          {daysList.map(d => (
-            <button
-              key={d}
-              onClick={() => setSelectedDay(d)}
-              className={`btn btn-sm ${selectedDay === d ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ minWidth: '42px' }}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Day Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginRight: '4px' }}>
+              Day:
+            </span>
+            {daysList.map(d => (
+              <button
+                key={d}
+                onClick={() => setSelectedDay(d)}
+                className={`btn btn-sm ${selectedDay === d ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ minWidth: '42px' }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
 
-        {/* Status Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
-          {(['All', 'Pending', 'Completed'] as const).map(st => (
-            <button
-              key={st}
-              onClick={() => setFilterStatus(st)}
-              className={`btn btn-sm ${filterStatus === st ? 'btn-primary' : 'btn-secondary'}`}
+          {/* Subject Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Subject:</span>
+            <select
+              value={selectedSubject}
+              onChange={e => setSelectedSubject(e.target.value)}
+              className="select-control"
             >
-              {st}
-            </button>
-          ))}
+              <option value="All">All Subjects</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Mathematics">Mathematics</option>
+            </select>
+          </div>
+
+          {/* Priority Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Priority:</span>
+            <select
+              value={selectedPriority}
+              onChange={e => setSelectedPriority(e.target.value)}
+              className="select-control"
+            >
+              <option value="All">All Priorities</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
+            {(['All', 'Pending', 'Completed'] as const).map(st => (
+              <button
+                key={st}
+                onClick={() => setFilterStatus(st)}
+                className={`btn btn-sm ${filterStatus === st ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -220,7 +339,7 @@ export const StudyPlannerPage: React.FC = () => {
         <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {displayedTasks.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-              No study tasks found for this day or filter. Click "Add Custom Task" to create one.
+              No study tasks found for this day or filter. Click "Add Custom Objective" or "Auto-Plan From Weak Topics".
             </div>
           ) : (
             displayedTasks.map(task => {
@@ -264,7 +383,7 @@ export const StudyPlannerPage: React.FC = () => {
                         {task.title}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                         <span className="badge badge-default" style={{ fontSize: '10px' }}>{task.day}</span>
                         <span>•</span>
                         <span>{task.subject}</span>
@@ -274,6 +393,8 @@ export const StudyPlannerPage: React.FC = () => {
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Clock size={12} /> {task.durationMinutes} mins
                         </span>
+                        <span>•</span>
+                        <span className="badge badge-default" style={{ fontSize: '10px' }}>{task.taskType}</span>
                       </div>
                     </div>
                   </div>
@@ -286,6 +407,14 @@ export const StudyPlannerPage: React.FC = () => {
                     >
                       {task.priority} Priority
                     </span>
+                    <button
+                      onClick={() => handleOpenEdit(task)}
+                      className="btn btn-subtle btn-sm"
+                      style={{ padding: '6px', color: 'var(--text-muted)' }}
+                      title="Edit Task"
+                    >
+                      <Edit2 size={14} />
+                    </button>
                     <button
                       onClick={() => handleDelete(task.id)}
                       className="btn btn-subtle btn-sm"
@@ -302,13 +431,13 @@ export const StudyPlannerPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Custom Task Modal */}
+      {/* Add / Edit Task Modal */}
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title="Add New Study Objective"
+        title={editingTask ? 'Edit Study Objective' : 'Add New Study Objective'}
       >
-        <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form onSubmit={handleSaveTask} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>
               Task Title / Description
@@ -317,8 +446,8 @@ export const StudyPlannerPage: React.FC = () => {
               type="text"
               required
               placeholder="e.g. Solve 20 timed definite integral problems"
-              value={newTaskTitle}
-              onChange={e => setNewTaskTitle(e.target.value)}
+              value={formTitle}
+              onChange={e => setFormTitle(e.target.value)}
               className="input-control"
             />
           </div>
@@ -329,8 +458,8 @@ export const StudyPlannerPage: React.FC = () => {
                 Subject
               </label>
               <select
-                value={newTaskSubject}
-                onChange={e => setNewTaskSubject(e.target.value as Subject)}
+                value={formSubject}
+                onChange={e => setFormSubject(e.target.value as Subject)}
                 className="select-control"
                 style={{ width: '100%' }}
               >
@@ -345,8 +474,8 @@ export const StudyPlannerPage: React.FC = () => {
                 Day of Week
               </label>
               <select
-                value={newTaskDay}
-                onChange={e => setNewTaskDay(e.target.value as any)}
+                value={formDay}
+                onChange={e => setFormDay(e.target.value as any)}
                 className="select-control"
                 style={{ width: '100%' }}
               >
@@ -361,6 +490,20 @@ export const StudyPlannerPage: React.FC = () => {
             </div>
           </div>
 
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>
+              Topic Name
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Integration (Definite & Indefinite)"
+              value={formTopic}
+              onChange={e => setFormTopic(e.target.value)}
+              className="input-control"
+            />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>
@@ -371,8 +514,8 @@ export const StudyPlannerPage: React.FC = () => {
                 min="15"
                 max="240"
                 step="15"
-                value={newTaskDuration}
-                onChange={e => setNewTaskDuration(Number(e.target.value))}
+                value={formDuration}
+                onChange={e => setFormDuration(Number(e.target.value))}
                 className="input-control"
               />
             </div>
@@ -382,8 +525,8 @@ export const StudyPlannerPage: React.FC = () => {
                 Priority
               </label>
               <select
-                value={newTaskPriority}
-                onChange={e => setNewTaskPriority(e.target.value as Priority)}
+                value={formPriority}
+                onChange={e => setFormPriority(e.target.value as Priority)}
                 className="select-control"
                 style={{ width: '100%' }}
               >
@@ -399,8 +542,8 @@ export const StudyPlannerPage: React.FC = () => {
               Task Type
             </label>
             <select
-              value={newTaskType}
-              onChange={e => setNewTaskType(e.target.value as any)}
+              value={formType}
+              onChange={e => setFormType(e.target.value as any)}
               className="select-control"
               style={{ width: '100%' }}
             >
@@ -420,7 +563,7 @@ export const StudyPlannerPage: React.FC = () => {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              Add Objective
+              {editingTask ? 'Save Changes' : 'Add Objective'}
             </button>
           </div>
         </form>

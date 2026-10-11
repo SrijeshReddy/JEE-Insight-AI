@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calculator,
   TrendingUp,
@@ -9,10 +9,12 @@ import {
   CalendarCheck,
   RotateCcw,
   BarChart2,
-  ShieldAlert
+  ShieldAlert,
+  Award
 } from 'lucide-react';
 import { scoreSimulatorService, SimulatorInputs } from '../services/scoreSimulatorService';
 import { studyPlannerService } from '../services/studyPlannerService';
+import { mockTestService } from '../services/mockTestService';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { NavPage } from '../components/layout/Sidebar';
 
@@ -21,27 +23,44 @@ interface ScoreSimulatorPageProps {
 }
 
 export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNavigate }) => {
+  const [baselineScore, setBaselineScore] = useState<number>(112);
   const [inputs, setInputs] = useState<SimulatorInputs>({
     mathAccuracyDelta: 20, // +20%
     chemAccuracyDelta: 10, // +10%
+    physicsAccuracyDelta: 10, // +10%
     negativeMarksSaved: 4, // 4 guesses avoided
     extraWeeklyHours: 6, // 6 extra hours
-    speedOptimizationSec: 20 // 20s faster in Physics
+    speedOptimizationSec: 20, // 20s faster in Physics
+    customBaselineScore: 112
   });
 
   const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    mockTestService.getLatestAttempt().then(att => {
+      if (att) {
+        setBaselineScore(att.score);
+        setInputs(prev => ({ ...prev, customBaselineScore: att.score }));
+      }
+    });
+  }, []);
+
   const simulation = useMemo(() => {
-    return scoreSimulatorService.calculateScenario(inputs);
-  }, [inputs]);
+    return scoreSimulatorService.calculateScenario({
+      ...inputs,
+      customBaselineScore: baselineScore
+    });
+  }, [inputs, baselineScore]);
 
   const handleReset = () => {
     setInputs({
       mathAccuracyDelta: 0,
       chemAccuracyDelta: 0,
+      physicsAccuracyDelta: 0,
       negativeMarksSaved: 0,
       extraWeeklyHours: 0,
-      speedOptimizationSec: 0
+      speedOptimizationSec: 0,
+      customBaselineScore: baselineScore
     });
   };
 
@@ -59,12 +78,25 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
       });
     }
 
+    if (inputs.chemAccuracyDelta > 0) {
+      await studyPlannerService.addTask({
+        day: 'Thu',
+        subject: 'Chemistry',
+        topic: 'Organic Reaction Mechanisms',
+        title: `Simulator Target: +${inputs.chemAccuracyDelta}% Organic Chemistry Mechanism Review`,
+        durationMinutes: 60,
+        taskType: 'Concept Revision',
+        priority: 'Medium',
+        reason: 'Generated from Score Simulator chemistry target.'
+      });
+    }
+
     if (inputs.negativeMarksSaved > 0) {
       await studyPlannerService.addTask({
         day: 'Fri',
         subject: 'Mathematics',
         topic: 'Exam Strategy',
-        title: `Eliminate ${inputs.negativeMarksSaved} blind guesses via timed Mock section triage`,
+        title: `Eliminate ${inputs.negativeMarksSaved} blind guesses via timed mock triage discipline`,
         durationMinutes: 45,
         taskType: 'Mock Analysis',
         priority: 'High',
@@ -104,16 +136,16 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
           style={{ gap: '6px' }}
         >
           <RotateCcw size={14} />
-          <span>Reset Inputs</span>
+          <span>Reset Inputs to Zero</span>
         </button>
       </div>
 
-      {/* Mandatory Disclaimer Alert */}
+      {/* Mandatory Transparent Disclaimer Alert */}
       <div
         style={{
-          backgroundColor: '#fffbeb',
-          border: '1px solid #fde68a',
-          color: '#92400e',
+          backgroundColor: 'var(--warning-bg)',
+          border: '1px solid var(--warning-border)',
+          color: 'var(--warning)',
           padding: '12px 18px',
           borderRadius: '8px',
           fontSize: '13px',
@@ -126,7 +158,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
       >
         <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <div>
-          <strong>Illustrative Scenario Notice:</strong> Scenario values are illustrative demonstration calculations and are not validated predictions of future examination performance. Real examination scores depend on paper difficulty, candidate distribution, and full syllabus mastery.
+          <strong>Illustrative Scenario Notice:</strong> Projected scores are deterministic mathematical calculations based on explicit assumptions (+5 raw marks per converted incorrect question, +1 raw mark per avoided negative guess). These are not machine learning predictions of future examination results. Real exam scores depend on candidate distribution and paper difficulty.
         </div>
       </div>
 
@@ -156,12 +188,38 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Adjust sliders</span>
           </div>
 
-          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Control 0: Baseline Score Selector */}
+            <div style={{ paddingBottom: '14px', borderBottom: '1px solid var(--border-default)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 600 }}>
+                  Baseline Reference Score (/300):
+                </label>
+                <strong style={{ color: 'var(--text-primary)', fontSize: '14px' }}>
+                  {baselineScore}/300
+                </strong>
+              </div>
+              <input
+                type="range"
+                min="60"
+                max="220"
+                step="5"
+                value={baselineScore}
+                onChange={e => setBaselineScore(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <span>60 marks</span>
+                <span>Default baseline: 112 (Mock #8)</span>
+                <span>220 marks</span>
+              </div>
+            </div>
+
             {/* Control 1: Mathematics Accuracy Delta */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600 }}>
-                  Mathematics Accuracy Improvement:
+                  Mathematics Accuracy Gain:
                 </label>
                 <strong style={{ color: 'var(--accent-blue)', fontSize: '14px' }}>
                   +{inputs.mathAccuracyDelta}%
@@ -178,7 +236,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 <span>Current: 51%</span>
-                <span>Projected: {51 + inputs.mathAccuracyDelta}%</span>
+                <span>Projected: {Math.min(100, 51 + inputs.mathAccuracyDelta)}%</span>
               </div>
             </div>
 
@@ -186,7 +244,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600 }}>
-                  Organic Chemistry Accuracy Improvement:
+                  Chemistry Accuracy Gain:
                 </label>
                 <strong style={{ color: 'var(--accent-teal)', fontSize: '14px' }}>
                   +{inputs.chemAccuracyDelta}%
@@ -203,11 +261,36 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 <span>Current: 68%</span>
-                <span>Projected: {68 + inputs.chemAccuracyDelta}%</span>
+                <span>Projected: {Math.min(100, 68 + inputs.chemAccuracyDelta)}%</span>
               </div>
             </div>
 
-            {/* Control 3: Blind Guesses / Negative Marks Avoided */}
+            {/* Control 3: Physics Accuracy Delta */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 600 }}>
+                  Physics Accuracy Gain:
+                </label>
+                <strong style={{ color: '#2563eb', fontSize: '14px' }}>
+                  +{inputs.physicsAccuracyDelta}%
+                </strong>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="30"
+                step="5"
+                value={inputs.physicsAccuracyDelta}
+                onChange={e => setInputs({ ...inputs, physicsAccuracyDelta: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2563eb' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <span>Current: 72%</span>
+                <span>Projected: {Math.min(100, 72 + inputs.physicsAccuracyDelta)}%</span>
+              </div>
+            </div>
+
+            {/* Control 4: Blind Guesses / Negative Marks Avoided */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600 }}>
@@ -232,7 +315,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
               </div>
             </div>
 
-            {/* Control 4: Additional Weekly Practice Hours */}
+            {/* Control 5: Additional Weekly Practice Hours */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600 }}>
@@ -257,11 +340,11 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
               </div>
             </div>
 
-            {/* Control 5: Speed Optimization in Physics */}
+            {/* Control 6: Speed Optimization in Physics */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600 }}>
-                  Physics Speed Optimization:
+                  Speed Optimization (Time Saved per Question):
                 </label>
                 <strong style={{ color: '#7c3aed', fontSize: '14px' }}>
                   {inputs.speedOptimizationSec}s saved / question
@@ -277,7 +360,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
                 style={{ width: '100%', accentColor: '#7c3aed' }}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                <span>Saves ~{(inputs.speedOptimizationSec * 25) / 60} mins to reallocate to Calculus</span>
+                <span>Saves ~{Math.round((inputs.speedOptimizationSec * 25) / 60)} mins to reallocate to Mathematics calculations</span>
               </div>
             </div>
           </div>
@@ -312,6 +395,12 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
               Baseline: <strong>{simulation.baselineScore}/300</strong> • Illustrative Band: <strong>{simulation.estimatedRankBand}</strong>
             </div>
+
+            {simulation.estimatedPercentile && (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Projected Percentile: <strong>{simulation.estimatedPercentile}</strong>
+              </div>
+            )}
 
             {/* Before vs After Visual Bar */}
             <div style={{ marginTop: '20px', textAlign: 'left' }}>
@@ -349,7 +438,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Accuracy Gains (Math & Chem):</span>
+                <span>Accuracy Gains (Math, Chem, Phys):</span>
                 <strong style={{ color: 'var(--accent-blue)' }}>+{simulation.breakdown.fromAccuracy} marks</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -361,7 +450,7 @@ export const ScoreSimulatorPage: React.FC<ScoreSimulatorPageProps> = ({ onNaviga
                 <strong style={{ color: '#b45309' }}>+{simulation.breakdown.fromExtraPractice} marks</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Speed Reallocation to Calculus:</span>
+                <span>Speed Reallocation to Difficult Steps:</span>
                 <strong style={{ color: '#7c3aed' }}>+{simulation.breakdown.fromSpeedReallocation} marks</strong>
               </div>
             </div>

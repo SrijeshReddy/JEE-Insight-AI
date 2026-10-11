@@ -9,14 +9,17 @@ import {
   BookOpen,
   ArrowRight,
   Lightbulb,
-  MessageSquare
+  MessageSquare,
+  Compass,
+  BarChart3,
+  ExternalLink
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { aiCoachService } from '../services/aiCoachService';
 import { NavPage } from '../components/layout/Sidebar';
 
 interface AICoachPageProps {
-  onNavigate: (page: NavPage) => void;
+  onNavigate: (page: NavPage, topicContext?: string) => void;
   initialTopicContext?: string;
 }
 
@@ -73,12 +76,11 @@ export const AICoachPage: React.FC<AICoachPageProps> = ({
     setTimeout(async () => {
       const { coachMsg } = await aiCoachService.sendMessage(text, topicContext);
       setMessages(prev => {
-        // replace temp message or append
         const filtered = prev.filter(m => m.id !== tempUserMsg.id);
         return [...filtered, tempUserMsg, coachMsg];
       });
       setIsTyping(false);
-    }, 650);
+    }, 600);
   };
 
   const handleClear = async () => {
@@ -120,14 +122,6 @@ export const AICoachPage: React.FC<AICoachPageProps> = ({
           <RotateCcw size={14} />
           <span>Reset Conversation</span>
         </button>
-      </div>
-
-      {/* Demo Notice */}
-      <div className="demo-banner" style={{ marginBottom: '20px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Prototype AI Model:</strong> Running deterministic pedagogical rules and data autopsy logic without requiring external LLM API tokens. Designed for seamless future replacement with an open-weight LLM Python backend.
-        </span>
       </div>
 
       {/* Topic Context Pill (if active) */}
@@ -223,6 +217,35 @@ export const AICoachPage: React.FC<AICoachPageProps> = ({
                     }}
                   >
                     <div style={{ whiteSpace: 'pre-line' }}>{msg.text}</div>
+
+                    {/* Interactive Action Links inside coach message */}
+                    {isCoach && msg.actionLinks && msg.actionLinks.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-default)' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          Recommended Actions:
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {msg.actionLinks.map((link, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => onNavigate(link.page, link.context)}
+                              className="btn btn-secondary btn-sm"
+                              style={{
+                                fontSize: '11px',
+                                padding: '4px 10px',
+                                gap: '4px',
+                                color: 'var(--accent-blue)',
+                                borderColor: 'var(--accent-blue-border)',
+                                backgroundColor: 'var(--accent-blue-light)'
+                              }}
+                            >
+                              <span>{link.label}</span>
+                              <ExternalLink size={12} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div
@@ -240,7 +263,7 @@ export const AICoachPage: React.FC<AICoachPageProps> = ({
                     {msg.contextTopic && <span>• Context: {msg.contextTopic}</span>}
                   </div>
 
-                  {/* Suggestion buttons inside coach message */}
+                  {/* Suggestion follow-up prompt buttons */}
                   {isCoach && msg.actionSuggestions && msg.actionSuggestions.length > 0 && (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                       {msg.actionSuggestions.map((sug, i) => (
@@ -294,7 +317,7 @@ export const AICoachPage: React.FC<AICoachPageProps> = ({
                   gap: '6px'
                 }}
               >
-                <span>Analyzing student mock diagnostics...</span>
+                <span>Analyzing student mock diagnostics & performance patterns...</span>
               </div>
             </div>
           )}

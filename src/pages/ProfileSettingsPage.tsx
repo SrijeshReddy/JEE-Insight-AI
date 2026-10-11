@@ -108,14 +108,6 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
         </p>
       </div>
 
-      {/* Demo Notice */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Prototype Configuration:</strong> Updating these fields modifies localized browser session state. No external authentication server is required in this demonstration phase.
-        </span>
-      </div>
-
       {savedSuccess && (
         <div className="demo-banner" style={{ backgroundColor: 'var(--success-bg)', borderColor: 'var(--success-border)', color: 'var(--success)', marginBottom: '16px' }}>
           Profile preferences updated successfully!

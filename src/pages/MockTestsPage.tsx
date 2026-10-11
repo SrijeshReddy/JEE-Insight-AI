@@ -13,9 +13,14 @@ import {
   Sparkles,
   BarChart,
   BookOpen,
-  Send
+  Send,
+  Search,
+  ArrowUpDown,
+  FileCheck2,
+  ShieldAlert,
+  Award
 } from 'lucide-react';
-import { MockTestSummary, Question, QuestionResponse, Difficulty, TestType } from '../types';
+import { MockTestSummary, Question, QuestionResponse, Difficulty, TestType, Subject } from '../types';
 import { mockTestService } from '../services/mockTestService';
 import { Modal } from '../components/common/Modal';
 import { NavPage } from '../components/layout/Sidebar';
@@ -23,32 +28,54 @@ import { NavPage } from '../components/layout/Sidebar';
 interface MockTestsPageProps {
   onNavigate: (page: NavPage) => void;
   onTestSubmitted?: (attemptId: string) => void;
+  onTestActiveChange?: (isActive: boolean) => void;
 }
 
 export const MockTestsPage: React.FC<MockTestsPageProps> = ({
   onNavigate,
-  onTestSubmitted
+  onTestSubmitted,
+  onTestActiveChange
 }) => {
   const [tests, setTests] = useState<MockTestSummary[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'default' | 'title' | 'duration' | 'questions'>('default');
+
+  // Pre-Start Confirmation Modal
+  const [pendingTestToStart, setPendingTestToStart] = useState<MockTestSummary | null>(null);
+  const [hasExistingDraft, setHasExistingDraft] = useState<boolean>(false);
 
   // Active Test State
   const [activeTest, setActiveTest] = useState<MockTestSummary | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [responses, setResponses] = useState<Record<string, QuestionResponse>>({});
-  const [timerSeconds, setTimerSeconds] = useState<number>(1800); // 30 mins demo
+  const [timerSeconds, setTimerSeconds] = useState<number>(1800);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(true);
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set([0]));
+  const [activeSectionFilter, setActiveSectionFilter] = useState<'All' | Subject>('All');
   const [showSubmitModal, setShowSubmitModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Behavioral Telemetry Tracking
+  const [telemetry, setTelemetry] = useState<Record<string, {
+    visitCount: number;
+    timeSpentSeconds: number;
+    timeToFirstActionSeconds: number | null;
+    answerChangeCount: number;
+    reviewToggleCount: number;
+    initialOption: string | null;
+    finalOption: string | null;
+    telemetryEvents: Array<{ type: string; timestamp: number; details?: any }>;
+  }>>({});
+  const [questionEntryTime, setQuestionEntryTime] = useState<number>(Date.now());
 
   useEffect(() => {
     mockTestService.getAllTests().then(data => setTests(data));
   }, []);
 
-  // Timer countdown
+  // Timer countdown & Auto-save draft
   useEffect(() => {
     if (!activeTest || !isTimerRunning) return;
     const interval = setInterval(() => {
@@ -64,30 +91,88 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
     return () => clearInterval(interval);
   }, [activeTest, isTimerRunning]);
 
-  const handleStartTest = async (test: MockTestSummary) => {
+  // Periodic draft persistence
+  useEffect(() => {
+    if (!activeTest) return;
+    mockTestService.saveDraft(activeTest.id, responses, timerSeconds, currentIndex);
+  }, [activeTest, responses, timerSeconds, currentIndex]);
+
+  const handleOpenStartModal = (test: MockTestSummary) => {
+    const draft = mockTestService.getDraft(test.id);
+    setHasExistingDraft(draft !== null);
+    setPendingTestToStart(test);
+  };
+
+  const handleConfirmStart = async (resumeDraft: boolean = false) => {
+    if (!pendingTestToStart) return;
+    const test = pendingTestToStart;
     const qs = await mockTestService.getTestQuestions(test.id);
     setQuestions(qs);
     setActiveTest(test);
-    setCurrentIndex(0);
-    setVisitedQuestions(new Set([0]));
-    setTimerSeconds(test.durationMinutes * 60);
-    setIsTimerRunning(true);
+    onTestActiveChange?.(true);
+    setActiveSectionFilter('All');
 
-    // Initialize empty responses
-    const initialResp: Record<string, QuestionResponse> = {};
-    qs.forEach(q => {
-      initialResp[q.id] = {
-        selectedOption: null,
-        markedForReview: false,
-        timeSpentSeconds: 0
-      };
-    });
-    setResponses(initialResp);
+    const draft = mockTestService.getDraft(test.id);
+    if (resumeDraft && draft) {
+      setResponses(draft.responses);
+      setTimerSeconds(draft.timerSeconds);
+      setCurrentIndex(draft.currentIndex || 0);
+      const visited = new Set<number>();
+      Object.keys(draft.responses).forEach(qId => {
+        const qIdx = qs.findIndex(q => q.id === qId);
+        if (qIdx !== -1) visited.add(qIdx);
+      });
+      visited.add(draft.currentIndex || 0);
+      setVisitedQuestions(visited);
+    } else {
+      // Start fresh
+      setCurrentIndex(0);
+      setVisitedQuestions(new Set([0]));
+      setTimerSeconds(test.durationMinutes * 60);
+
+      const initialResp: Record<string, QuestionResponse> = {};
+      const initialTelem: Record<string, any> = {};
+      qs.forEach((q, idx) => {
+        initialResp[q.id] = {
+          selectedOption: null,
+          markedForReview: false,
+          timeSpentSeconds: 0
+        };
+        initialTelem[q.id] = {
+          visitCount: idx === 0 ? 1 : 0,
+          timeSpentSeconds: 0,
+          timeToFirstActionSeconds: null,
+          answerChangeCount: 0,
+          reviewToggleCount: 0,
+          initialOption: null,
+          finalOption: null,
+          telemetryEvents: []
+        };
+      });
+      setResponses(initialResp);
+      setTelemetry(initialTelem);
+      setQuestionEntryTime(Date.now());
+      mockTestService.clearDraft(test.id);
+    }
+
+    setIsTimerRunning(true);
+    setPendingTestToStart(null);
+  };
+
+  const handleExitTest = () => {
+    if (activeTest) {
+      mockTestService.saveDraft(activeTest.id, responses, timerSeconds, currentIndex);
+    }
+    setActiveTest(null);
+    onTestActiveChange?.(false);
   };
 
   const handleSelectOption = (optionId: string) => {
     if (!questions[currentIndex]) return;
     const qId = questions[currentIndex].id;
+    const now = Date.now();
+    const elapsedOnQuestion = Math.max(0.5, (now - questionEntryTime) / 1000);
+
     setResponses(prev => ({
       ...prev,
       [qId]: {
@@ -95,11 +180,44 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
         selectedOption: optionId
       }
     }));
+
+    setTelemetry(prev => {
+      const currentQTelem = prev[qId] || {
+        visitCount: 1,
+        timeSpentSeconds: 0,
+        timeToFirstActionSeconds: null,
+        answerChangeCount: 0,
+        reviewToggleCount: 0,
+        initialOption: null,
+        finalOption: null,
+        telemetryEvents: []
+      };
+
+      const isFirstAction = currentQTelem.timeToFirstActionSeconds === null;
+      const firstActionTime = isFirstAction ? Math.round(elapsedOnQuestion * 10) / 10 : currentQTelem.timeToFirstActionSeconds;
+      const isChange = currentQTelem.finalOption !== null && currentQTelem.finalOption !== optionId;
+
+      return {
+        ...prev,
+        [qId]: {
+          ...currentQTelem,
+          timeToFirstActionSeconds: firstActionTime,
+          initialOption: currentQTelem.initialOption || optionId,
+          finalOption: optionId,
+          answerChangeCount: isChange ? currentQTelem.answerChangeCount + 1 : currentQTelem.answerChangeCount,
+          telemetryEvents: [
+            ...currentQTelem.telemetryEvents,
+            { type: 'select_option', optionId, timestamp: now }
+          ]
+        }
+      };
+    });
   };
 
   const handleClearResponse = () => {
     if (!questions[currentIndex]) return;
     const qId = questions[currentIndex].id;
+    const now = Date.now();
     setResponses(prev => ({
       ...prev,
       [qId]: {
@@ -107,11 +225,29 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
         selectedOption: null
       }
     }));
+
+    setTelemetry(prev => {
+      const cur = prev[qId];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [qId]: {
+          ...cur,
+          finalOption: null,
+          answerChangeCount: cur.finalOption ? cur.answerChangeCount + 1 : cur.answerChangeCount,
+          telemetryEvents: [
+            ...cur.telemetryEvents,
+            { type: 'clear_response', timestamp: now }
+          ]
+        }
+      };
+    });
   };
 
   const handleToggleMarkForReview = () => {
     if (!questions[currentIndex]) return;
     const qId = questions[currentIndex].id;
+    const now = Date.now();
     setResponses(prev => ({
       ...prev,
       [qId]: {
@@ -119,23 +255,112 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
         markedForReview: !prev[qId]?.markedForReview
       }
     }));
+
+    setTelemetry(prev => {
+      const cur = prev[qId];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [qId]: {
+          ...cur,
+          reviewToggleCount: cur.reviewToggleCount + 1,
+          telemetryEvents: [
+            ...cur.telemetryEvents,
+            { type: 'toggle_review', timestamp: now }
+          ]
+        }
+      };
+    });
   };
 
   const handleNavigateQuestion = (targetIndex: number) => {
-    if (targetIndex >= 0 && targetIndex < questions.length) {
+    if (targetIndex >= 0 && targetIndex < questions.length && targetIndex !== currentIndex) {
+      const now = Date.now();
+      const elapsedSeconds = Math.max(1, Math.round((now - questionEntryTime) / 1000));
+      const currentQId = questions[currentIndex]?.id;
+      const targetQId = questions[targetIndex]?.id;
+
+      // Accumulate time on previous question without double-counting
+      if (currentQId) {
+        setResponses(prev => ({
+          ...prev,
+          [currentQId]: {
+            ...prev[currentQId],
+            timeSpentSeconds: (prev[currentQId]?.timeSpentSeconds || 0) + elapsedSeconds
+          }
+        }));
+
+        setTelemetry(prev => {
+          const cur = prev[currentQId];
+          const target = prev[targetQId];
+          return {
+            ...prev,
+            [currentQId]: {
+              ...cur,
+              timeSpentSeconds: (cur?.timeSpentSeconds || 0) + elapsedSeconds,
+              telemetryEvents: [
+                ...(cur?.telemetryEvents || []),
+                { type: 'leave_question', durationSeconds: elapsedSeconds, timestamp: now }
+              ]
+            },
+            ...(targetQId ? {
+              [targetQId]: {
+                ...target,
+                visitCount: (target?.visitCount || 0) + 1,
+                telemetryEvents: [
+                  ...(target?.telemetryEvents || []),
+                  { type: 'enter_question', timestamp: now }
+                ]
+              }
+            } : {})
+          };
+        });
+      }
+
       setCurrentIndex(targetIndex);
+      setQuestionEntryTime(Date.now());
       setVisitedQuestions(prev => new Set(prev).add(targetIndex));
     }
   };
 
   const handleSubmitTest = async () => {
-    if (!activeTest) return;
+    if (!activeTest || isSubmitting) return;
     setIsSubmitting(true);
+    setIsTimerRunning(false);
+
+    const now = Date.now();
+    const elapsedOnFinalQ = Math.max(1, Math.round((now - questionEntryTime) / 1000));
+    const activeQId = questions[currentIndex]?.id;
+
+    // Finalize responses and telemetry with remaining elapsed duration
+    const finalResponses = { ...responses };
+    const finalTelemetry = { ...telemetry };
+
+    if (activeQId) {
+      finalResponses[activeQId] = {
+        ...finalResponses[activeQId],
+        timeSpentSeconds: (finalResponses[activeQId]?.timeSpentSeconds || 0) + elapsedOnFinalQ
+      };
+      if (finalTelemetry[activeQId]) {
+        finalTelemetry[activeQId] = {
+          ...finalTelemetry[activeQId],
+          timeSpentSeconds: (finalTelemetry[activeQId]?.timeSpentSeconds || 0) + elapsedOnFinalQ
+        };
+      }
+    }
+
     const timeSpent = activeTest.durationMinutes * 60 - timerSeconds;
-    const result = await mockTestService.submitTest(activeTest.id, responses, Math.max(30, timeSpent));
+    const result = await mockTestService.submitTest(
+      activeTest.id,
+      finalResponses,
+      Math.max(30, timeSpent),
+      finalTelemetry
+    );
+
     setIsSubmitting(false);
     setShowSubmitModal(false);
     setActiveTest(null);
+    onTestActiveChange?.(false);
 
     if (onTestSubmitted) {
       onTestSubmitted(result.id);
@@ -143,12 +368,26 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
     onNavigate('results');
   };
 
-  // Filtered Tests Library
-  const filteredTests = tests.filter(t => {
-    if (selectedType !== 'All' && t.type !== selectedType) return false;
-    if (selectedDifficulty !== 'All' && t.difficulty !== selectedDifficulty) return false;
-    return true;
-  });
+  // Filtered & Sorted Tests Library
+  const filteredTests = tests
+    .filter(t => {
+      if (selectedType !== 'All' && t.type !== selectedType) return false;
+      if (selectedDifficulty !== 'All' && t.difficulty !== selectedDifficulty) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesTitle = t.title.toLowerCase().includes(query);
+        const matchesDesc = t.description.toLowerCase().includes(query);
+        const matchesSubject = t.subject ? t.subject.toLowerCase().includes(query) : false;
+        if (!matchesTitle && !matchesDesc && !matchesSubject) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'duration') return b.durationMinutes - a.durationMinutes;
+      if (sortBy === 'questions') return b.questionsCount - a.questionsCount;
+      return 0;
+    });
 
   // Calculate palette status
   const getQuestionStatus = (index: number) => {
@@ -171,21 +410,41 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
   };
 
   // Counts for active test summary
-  const answeredCount = Object.values(responses).filter(r => r.selectedOption !== null).length;
-  const markedCount = Object.values(responses).filter(r => r.markedForReview).length;
-  const notAnsweredCount = questions.length - answeredCount;
+  const answeredCount = Object.values(responses).filter(r => r.selectedOption !== null && !r.markedForReview).length;
+  const answeredAndMarkedCount = Object.values(responses).filter(r => r.selectedOption !== null && r.markedForReview).length;
+  const markedOnlyCount = Object.values(responses).filter(r => r.selectedOption === null && r.markedForReview).length;
+  const notAnsweredVisitedCount = Array.from(visitedQuestions).filter(idx => {
+    const q = questions[idx];
+    if (!q) return false;
+    const r = responses[q.id];
+    return !r?.selectedOption && !r?.markedForReview;
+  }).length;
+  const notVisitedCount = questions.length - visitedQuestions.size;
+
+  // Active section breakdown
+  const sectionQuestions = {
+    Physics: questions.filter(q => q.subject === 'Physics'),
+    Chemistry: questions.filter(q => q.subject === 'Chemistry'),
+    Mathematics: questions.filter(q => q.subject === 'Mathematics')
+  };
 
   // Render Full Screen / Modal Test Taking Interface if active
   if (activeTest) {
     const currentQ = questions[currentIndex];
     const currentResp = currentQ ? responses[currentQ.id] : null;
 
+    // Determine questions to show in palette based on activeSectionFilter
+    const visiblePaletteIndices = questions
+      .map((q, idx) => ({ q, idx }))
+      .filter(item => activeSectionFilter === 'All' || item.q.subject === activeSectionFilter)
+      .map(item => item.idx);
+
     return (
       <div style={{ backgroundColor: 'var(--bg-app)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* Test Header */}
         <header
           style={{
-            height: '56px',
+            height: '58px',
             backgroundColor: 'var(--bg-surface)',
             borderBottom: '1px solid var(--border-default)',
             padding: '0 24px',
@@ -200,10 +459,10 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontWeight: 700, fontSize: '15px' }}>{activeTest.title}</span>
             <span className="badge badge-default" style={{ fontSize: '11px' }}>
-              Section: {currentQ?.subject || 'All Subjects'}
+              Q{currentIndex + 1} of {questions.length}
             </span>
-            <span className="badge badge-blue" style={{ fontSize: '10px' }}>
-              Standard Marking (+4, -1)
+            <span className="badge badge-blue" style={{ fontSize: '11px' }}>
+              Marking Scheme: +4, -1
             </span>
           </div>
 
@@ -229,9 +488,18 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
             </div>
 
             <button
+              onClick={handleExitTest}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '7px 14px' }}
+              title="Save progress and return to tests library"
+            >
+              Save & Exit
+            </button>
+
+            <button
               onClick={() => setShowSubmitModal(true)}
               className="btn btn-primary btn-sm"
-              style={{ padding: '7px 16px', gap: '6px' }}
+              style={{ padding: '7px 18px', gap: '6px' }}
             >
               <Send size={14} />
               <span>Submit Test</span>
@@ -239,8 +507,47 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
           </div>
         </header>
 
+        {/* Section Quick Switcher Tabs */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            borderBottom: '1px solid var(--border-default)',
+            padding: '6px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Sections:</span>
+          {(['All', 'Physics', 'Chemistry', 'Mathematics'] as const).map(sec => {
+            const count = sec === 'All' ? questions.length : sectionQuestions[sec].length;
+            if (count === 0 && sec !== 'All') return null;
+
+            const isCurrentSection = sec === 'All'
+              ? activeSectionFilter === 'All'
+              : currentQ?.subject === sec;
+
+            return (
+              <button
+                key={sec}
+                onClick={() => {
+                  setActiveSectionFilter(sec);
+                  if (sec !== 'All') {
+                    const firstIdx = questions.findIndex(q => q.subject === sec);
+                    if (firstIdx !== -1) handleNavigateQuestion(firstIdx);
+                  }
+                }}
+                className={`btn btn-sm ${isCurrentSection ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+              >
+                {sec} ({count})
+              </button>
+            );
+          })}
+        </div>
+
         {/* Main Test Screen Body */}
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 320px', minHeight: 0 }} className="test-interface-grid">
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 340px', minHeight: 0 }} className="test-interface-grid">
           {/* Left: Question Area */}
           <div style={{ padding: '24px 32px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             {currentQ && (
@@ -256,15 +563,16 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                     marginBottom: '20px'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                       Question {currentIndex + 1} of {questions.length}
                     </span>
                     <span className="badge badge-default">{currentQ.subject}</span>
                     <span className="badge badge-blue">{currentQ.topic}</span>
+                    <span className="badge badge-warning" style={{ fontSize: '11px' }}>{currentQ.difficulty}</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Marks: <strong style={{ color: 'var(--success)' }}>+4</strong> / <strong style={{ color: 'var(--danger)' }}>-1</strong>
+                    Correct: <strong style={{ color: 'var(--success)' }}>+4</strong> | Incorrect: <strong style={{ color: 'var(--danger)' }}>-1</strong> | Unanswered: <strong>0</strong>
                   </div>
                 </div>
 
@@ -275,7 +583,7 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                     lineHeight: 1.6,
                     color: 'var(--text-primary)',
                     backgroundColor: 'var(--bg-surface)',
-                    padding: '20px',
+                    padding: '22px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-default)',
                     marginBottom: '24px'
@@ -402,34 +710,65 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
             }}
           >
             <div>
-              <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>Question Palette</h4>
-              {/* Legend */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#16a34a' }} />
-                  <span>Answered ({answeredCount})</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 600 }}>Question Palette</h4>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {visiblePaletteIndices.length} Questions
+                </span>
+              </div>
+
+              {/* 5-State Complete Legend */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '16px', padding: '10px', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#16a34a' }} />
+                    <span>Answered</span>
+                  </div>
+                  <strong>{answeredCount}</strong>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#dc2626' }} />
-                  <span>Not Answered</span>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#dc2626' }} />
+                    <span>Not Answered</span>
+                  </div>
+                  <strong>{notAnsweredVisitedCount}</strong>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#7c3aed' }} />
-                  <span>Review ({markedCount})</span>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#7c3aed' }} />
+                    <span>Marked for Review</span>
+                  </div>
+                  <strong>{markedOnlyCount}</strong>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#94a3b8' }} />
-                  <span>Not Visited</span>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#7c3aed', position: 'relative' }}>
+                      <span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a', border: '1px solid #fff' }} />
+                    </span>
+                    <span>Answered & Marked</span>
+                  </div>
+                  <strong>{answeredAndMarkedCount}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#cbd5e1' }} />
+                    <span>Not Visited</span>
+                  </div>
+                  <strong>{notVisitedCount}</strong>
                 </div>
               </div>
 
               {/* Palette Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
-                {questions.map((q, idx) => {
+                {visiblePaletteIndices.map(idx => {
                   const status = getQuestionStatus(idx);
                   const isCurrent = idx === currentIndex;
 
-                  let bgColor = '#cbd5e1'; // not visited
+                  let bgColor = '#cbd5e1';
                   let textColor = '#334155';
 
                   if (status === 'answered') {
@@ -445,7 +784,7 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
 
                   return (
                     <button
-                      key={q.id}
+                      key={questions[idx].id}
                       onClick={() => handleNavigateQuestion(idx)}
                       style={{
                         height: '38px',
@@ -457,13 +796,28 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        position: 'relative',
                         outline: isCurrent ? '2px solid var(--accent-blue)' : 'none',
                         outlineOffset: '2px',
                         transition: 'transform var(--transition-fast)'
                       }}
-                      title={`Question ${idx + 1} (${status})`}
+                      title={`Question ${idx + 1} (${questions[idx].subject} - ${status})`}
                     >
                       {idx + 1}
+                      {status === 'answered-marked' && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '3px',
+                            right: '3px',
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: '#22c55e',
+                            border: '1px solid #ffffff'
+                          }}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -483,16 +837,16 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
             >
               <div style={{ fontWeight: 600, marginBottom: '6px' }}>Section Breakdown:</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '3px' }}>
-                <span>Physics (Q1 - Q5)</span>
-                <span>5 Questions</span>
+                <span>Physics</span>
+                <span>{sectionQuestions.Physics.length} Questions</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '3px' }}>
-                <span>Chemistry (Q6 - Q10)</span>
-                <span>5 Questions</span>
+                <span>Chemistry</span>
+                <span>{sectionQuestions.Chemistry.length} Questions</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Mathematics (Q11 - Q15)</span>
-                <span>5 Questions</span>
+                <span>Mathematics</span>
+                <span>{sectionQuestions.Mathematics.length} Questions</span>
               </div>
             </div>
           </aside>
@@ -506,14 +860,14 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Are you sure you want to finish and submit your mock examination? Once submitted, your automated performance diagnostic will be generated.
+              Are you sure you want to finish and submit your mock examination? Once submitted, your automated performance diagnostic will be calculated using standard JEE scoring rules.
             </p>
 
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '10px',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '8px',
                 backgroundColor: 'var(--bg-surface-subtle)',
                 padding: '14px',
                 borderRadius: '8px',
@@ -522,15 +876,21 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
             >
               <div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Answered</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--success)' }}>{answeredCount}</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--success)' }}>{answeredCount}</div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Unanswered</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--danger)' }}>{notAnsweredCount}</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--danger)' }}>
+                  {questions.length - (answeredCount + answeredAndMarkedCount)}
+                </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Marked Review</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#7c3aed' }}>{markedCount}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Review Only</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#7c3aed' }}>{markedOnlyCount}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ans & Review</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-blue)' }}>{answeredAndMarkedCount}</div>
               </div>
             </div>
 
@@ -565,60 +925,84 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
           Mock Tests & Sectional Assessments
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Take simulated CBT tests to generate empirical performance intelligence and diagnose topic mastery.
+          Take simulated CBT examinations to generate empirical performance intelligence and diagnose topic mastery.
         </p>
       </div>
 
-      {/* Demo Banner */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Interactive Test Engine:</strong> Launch <em>JEE Main Mock #9</em> to test the complete live question palette, countdown timer, question-to-question navigation, and instant forensic scoring calculation.
-        </span>
-      </div>
-
-      {/* Filter Bar */}
+      {/* Search and Filter Toolbar */}
       <div
         className="card"
         style={{
-          padding: '14px 20px',
+          padding: '16px 20px',
           marginBottom: '24px',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexDirection: 'column',
           gap: '14px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Filter size={14} /> Filter Type:
-          </span>
-          {['All', 'Full-Length', 'Subject', 'Chapter'].map(t => (
-            <button
-              key={t}
-              onClick={() => setSelectedType(t)}
-              className={`btn btn-sm ${selectedType === t ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Search Box */}
+          <div style={{ position: 'relative', width: '280px' }}>
+            <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search tests by title or topic..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="input-control"
+              style={{ paddingLeft: '32px' }}
+            />
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-            Difficulty:
-          </span>
-          <select
-            value={selectedDifficulty}
-            onChange={e => setSelectedDifficulty(e.target.value)}
-            className="select-control"
-          >
-            <option value="All">All Difficulties</option>
-            <option value="Easy">Easy</option>
-            <option value="Moderate">Moderate</option>
-            <option value="Challenging">Challenging</option>
-          </select>
+          {/* Test Type Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+              Type:
+            </span>
+            {['All', 'Full-Length', 'Subject', 'Chapter'].map(t => (
+              <button
+                key={t}
+                onClick={() => setSelectedType(t)}
+                className={`btn btn-sm ${selectedType === t ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Difficulty Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+              Difficulty:
+            </span>
+            <select
+              value={selectedDifficulty}
+              onChange={e => setSelectedDifficulty(e.target.value)}
+              className="select-control"
+            >
+              <option value="All">All Difficulties</option>
+              <option value="Easy">Easy</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Challenging">Challenging</option>
+            </select>
+          </div>
+
+          {/* Sorting */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+              Sort:
+            </span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="select-control"
+            >
+              <option value="default">Default Order</option>
+              <option value="title">Test Title (A-Z)</option>
+              <option value="duration">Longest Duration</option>
+              <option value="questions">Question Count</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -626,6 +1010,7 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
         {filteredTests.map(test => {
           const isInteractiveDemo = test.id === 'test-jee-09';
+          const draft = mockTestService.getDraft(test.id);
 
           return (
             <div
@@ -656,12 +1041,12 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                     letterSpacing: '0.04em'
                   }}
                 >
-                  Featured Interactive Simulation
+                  Featured Full Simulation
                 </div>
               )}
 
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
                   <span className="badge badge-default">{test.type}</span>
                   <span
                     className={`badge ${
@@ -670,9 +1055,14 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                   >
                     {test.difficulty}
                   </span>
+                  {draft && (
+                    <span className="badge badge-warning" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+                      In-Progress Draft
+                    </span>
+                  )}
                   {test.lastScore !== undefined && (
                     <span className="badge badge-blue">
-                      Attempted ({test.lastScore}/300)
+                      Score: {test.lastScore}/{test.maxMarks || 300}
                     </span>
                   )}
                 </div>
@@ -687,6 +1077,7 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
               </div>
 
               <div>
+                {/* Meta details bar */}
                 <div
                   style={{
                     display: 'flex',
@@ -697,7 +1088,7 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                     borderRadius: '6px',
                     fontSize: '12px',
                     color: 'var(--text-secondary)',
-                    marginBottom: '16px'
+                    marginBottom: '12px'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -708,16 +1099,25 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
                     <Clock size={14} color="var(--text-muted)" />
                     <span>{test.durationMinutes} Minutes</span>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Award size={14} color="var(--text-muted)" />
+                    <span>{test.maxMarks || test.questionsCount * 4} Marks</span>
+                  </div>
+                </div>
+
+                {/* Marking scheme pill */}
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                  Marking Scheme: <strong style={{ color: 'var(--success)' }}>+{test.markingScheme?.correct || 4}</strong> correct, <strong style={{ color: 'var(--danger)' }}>{test.markingScheme?.incorrect || -1}</strong> incorrect
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
-                    onClick={() => handleStartTest(test)}
+                    onClick={() => handleOpenStartModal(test)}
                     className="btn btn-primary"
                     style={{ flex: 1, gap: '6px' }}
                   >
                     <Play size={14} fill="currentColor" />
-                    <span>{test.status === 'Attempted' ? 'Re-attempt Test' : 'Start Test'}</span>
+                    <span>{draft ? 'Resume / Restart' : test.status === 'Attempted' ? 'Re-attempt Test' : 'Start Test'}</span>
                   </button>
                   {test.status === 'Attempted' && (
                     <button
@@ -735,6 +1135,83 @@ export const MockTestsPage: React.FC<MockTestsPageProps> = ({
           );
         })}
       </div>
+
+      {/* Pre-Test Confirmation Modal */}
+      <Modal
+        isOpen={pendingTestToStart !== null}
+        onClose={() => setPendingTestToStart(null)}
+        title={pendingTestToStart?.title || 'Examination Instructions'}
+        maxWidth="540px"
+      >
+        {pendingTestToStart && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', textAlign: 'center', fontSize: '12px' }}>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Questions</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>{pendingTestToStart.questionsCount}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Duration</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>{pendingTestToStart.durationMinutes} mins</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Max Score</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>{pendingTestToStart.maxMarks || pendingTestToStart.questionsCount * 4}</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Examination Rules & Marking Scheme:</h4>
+              <ul style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6, paddingLeft: '18px' }}>
+                <li><strong>Correct answer:</strong> +{pendingTestToStart.markingScheme?.correct || 4} marks</li>
+                <li><strong>Incorrect response:</strong> {pendingTestToStart.markingScheme?.incorrect || -1} marks (negative penalty)</li>
+                <li><strong>Unanswered question:</strong> {pendingTestToStart.markingScheme?.unattempted || 0} marks</li>
+                <li>The test timer counts down automatically. Accidental refreshes will retain your progress in browser draft memory.</li>
+              </ul>
+            </div>
+
+            {hasExistingDraft && (
+              <div style={{ padding: '10px 14px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '12px', color: '#92400e' }}>
+                <strong>Saved In-Progress Draft Detected:</strong> You have an unfinished attempt saved locally for this test. You can choose to resume where you left off or start fresh.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => setPendingTestToStart(null)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              {hasExistingDraft ? (
+                <>
+                  <button
+                    onClick={() => handleConfirmStart(false)}
+                    className="btn btn-secondary"
+                  >
+                    Start Fresh
+                  </button>
+                  <button
+                    onClick={() => handleConfirmStart(true)}
+                    className="btn btn-primary"
+                  >
+                    Resume In-Progress
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => handleConfirmStart(false)}
+                  className="btn btn-primary"
+                >
+                  Enter Examination
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

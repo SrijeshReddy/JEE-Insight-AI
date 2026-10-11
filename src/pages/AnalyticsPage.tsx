@@ -50,14 +50,6 @@ export const AnalyticsPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Demo Notice */}
-      <div className="demo-banner" style={{ marginBottom: '24px' }}>
-        <Sparkles size={15} color="var(--accent-blue)" />
-        <span>
-          <strong>Interactive Analytics:</strong> Use the subject filters below to observe dynamic updates across score trajectories, topic rankings, difficulty-tier accuracy, and time allocation models.
-        </span>
-      </div>
-
       {/* Subject Filter Bar */}
       <div
         className="card"

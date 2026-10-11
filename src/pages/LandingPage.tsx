@@ -50,9 +50,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         }}
       >
         <span style={{ fontWeight: 600, color: 'var(--accent-blue)', marginRight: '6px' }}>
-          PROTOTYPE PREVIEW:
+          PROTOTYPE DEMONSTRATION:
         </span>
-        Frontend simulation of JEE InsightAI architecture. Live demonstration mode enabled with verified sample data.
+        JEE InsightAI Architecture Preview. Rule-based analytics and diagnostic calculations are active; predictive intelligence and generative coaching are planned capabilities demonstrated via deterministic sample logic.
       </div>
 
       {/* Main Public Header */}
@@ -126,6 +126,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               Analytics
             </button>
             <button
+              onClick={() => onNavigate('mock-tests')}
+              style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '14px' }}
+              className="btn-subtle"
+            >
+              Mock Tests
+            </button>
+            <button
               onClick={() => onNavigate('ai-coach')}
               style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '14px' }}
               className="btn-subtle"
@@ -148,7 +155,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               className="btn btn-primary btn-sm"
               style={{ padding: '7px 16px', gap: '6px' }}
             >
-              <span>Explore Demo</span>
+              <span>Explore Dashboard</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -156,24 +163,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       </header>
 
       {/* Hero Section */}
-      <section style={{ padding: '72px 24px 60px', maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: '999px', backgroundColor: 'var(--accent-blue-light)', border: '1px solid var(--accent-blue-border)', color: 'var(--accent-blue)', fontSize: '12px', fontWeight: 600, marginBottom: '20px' }}>
+      <section style={{ padding: '68px 24px 56px', maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderRadius: '999px', backgroundColor: 'var(--accent-blue-light)', border: '1px solid var(--accent-blue-border)', color: 'var(--accent-blue)', fontSize: '12px', fontWeight: 600, marginBottom: '22px' }}>
           <Sparkles size={14} />
-          Adaptive Examination & Performance Intelligence
+          <span>An AI-Powered Adaptive Examination, Performance Intelligence & Personalized Learning Platform</span>
         </div>
 
         <h1
           style={{
-            fontSize: '44px',
+            fontSize: '46px',
             fontWeight: 800,
             lineHeight: 1.15,
             letterSpacing: '-0.03em',
             color: 'var(--text-primary)',
-            maxWidth: '820px',
-            margin: '0 auto 20px'
+            maxWidth: '860px',
+            margin: '0 auto 18px'
           }}
         >
-          Your JEE Preparation, <span style={{ color: 'var(--accent-blue)' }}>Backed by Data.</span>
+          Understand Your Performance.{' '}
+          <span style={{ color: 'var(--accent-blue)' }}>Improve With Evidence.</span>
         </h1>
 
         <p
@@ -181,28 +189,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             fontSize: '17px',
             lineHeight: 1.6,
             color: 'var(--text-secondary)',
-            maxWidth: '680px',
+            maxWidth: '720px',
             margin: '0 auto 36px'
           }}
         >
-          Go beyond mock-test scores. Understand your weaknesses, discover your next priorities, and track your improvement with personalized performance intelligence.
+          Traditional mock test series give you a percentile and a list of mistakes. JEE InsightAI delivers forensic performance intelligence: pinpointing your exact conceptual bottlenecks, measuring the toll of negative marks, and guiding your daily revision.
         </p>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '48px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '44px' }}>
           <button
             onClick={() => onNavigate('overview')}
             className="btn btn-primary btn-lg"
-            style={{ padding: '12px 24px', fontSize: '15px', gap: '8px' }}
+            style={{ padding: '12px 26px', fontSize: '15px', gap: '8px' }}
           >
-            <span>Explore the Dashboard</span>
+            <span>Explore Dashboard</span>
             <ArrowRight size={16} />
           </button>
           <button
-            onClick={() => scrollToSection('how-it-works')}
+            onClick={() => onNavigate('mock-tests')}
             className="btn btn-secondary btn-lg"
-            style={{ padding: '12px 22px', fontSize: '15px' }}
+            style={{ padding: '12px 24px', fontSize: '15px', gap: '8px' }}
           >
-            See How It Works
+            <span>Try a Mock Test</span>
           </button>
         </div>
 
@@ -649,7 +657,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             className="btn btn-primary btn-lg"
             style={{ padding: '12px 28px', fontSize: '15px', gap: '8px' }}
           >
-            <span>Explore Demo Dashboard</span>
+            <span>Explore Dashboard</span>
             <ArrowRight size={16} />
           </button>
           <button
@@ -657,7 +665,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             className="btn btn-secondary btn-lg"
             style={{ padding: '12px 24px', fontSize: '15px' }}
           >
-            Take Demo Mock Test
+            Try a Mock Test
           </button>
         </div>
       </section>

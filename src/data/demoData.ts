@@ -6,7 +6,8 @@ import {
   Question,
   StudyTask,
   HistoricalMockRecord,
-  TestAttemptResult
+  TestAttemptResult,
+  Subject
 } from '../types';
 
 export const INITIAL_STUDENT_PROFILE: StudentProfile = {
@@ -76,8 +77,8 @@ export const TOPIC_PERFORMANCES: TopicPerformance[] = [
     priority: 'High',
     trend: 'Declining',
     reason: 'Frequent algebraic sign errors and substitution traps in trigonometric integrands.',
-    recommendedAction: 'Revise standard substitution forms and property integrals before solving 25 timed level-1 problems.',
-    subtopics: ['Integration by Parts', 'Properties of Definite Integrals', 'Trigonometric Substitutions', 'Reduction Formulas']
+    recommendedAction: 'Revise standard substitution forms and King\'s property before solving 25 timed level-1 problems.',
+    subtopics: ['Integration by Parts', 'Properties of Definite Integrals (King\'s Property)', 'Trigonometric Substitutions', 'Reduction Formulas']
   },
   {
     id: 'top-math-02',
@@ -105,7 +106,7 @@ export const TOPIC_PERFORMANCES: TopicPerformance[] = [
     trend: 'Stable',
     reason: 'Confusion between SN1 vs SN2 solvent polarity dependencies and stereochemical inversion.',
     recommendedAction: 'Create a comparative flowchart of nucleophilic substitutions and carbocation rearrangements.',
-    subtopics: ['Electrophilic Aromatic Substitution', 'Nucleophilic Aliphatic Substitution', 'Aldol & Cannizzaro', 'Carbocation Stability']
+    subtopics: ['Electrophilic Aromatic Substitution', 'Nucleophilic Aliphatic Substitution (SN1 vs SN2)', 'Aldol & Cannizzaro', 'Carbocation Stability']
   },
   {
     id: 'top-phys-01',
@@ -180,14 +181,14 @@ export const TOPIC_PERFORMANCES: TopicPerformance[] = [
 ];
 
 export const HISTORICAL_MOCKS: HistoricalMockRecord[] = [
-  { id: 'mock-hist-1', mockName: 'JEE Main Mock #1 (Diagnostic)', date: '12 Aug 2026', score: 88, totalMarks: 300, accuracy: 52, timeSpentMinutes: 172, scoreDelta: 0, physicsScore: 40, chemScore: 32, mathScore: 16 },
-  { id: 'mock-hist-2', mockName: 'JEE Main Mock #2', date: '22 Aug 2026', score: 94, totalMarks: 300, accuracy: 56, timeSpentMinutes: 175, scoreDelta: 6, physicsScore: 44, chemScore: 36, mathScore: 14 },
-  { id: 'mock-hist-3', mockName: 'JEE Main Mock #3', date: '02 Sep 2026', score: 91, totalMarks: 300, accuracy: 54, timeSpentMinutes: 180, scoreDelta: -3, physicsScore: 42, chemScore: 35, mathScore: 14 },
-  { id: 'mock-hist-4', mockName: 'JEE Main Mock #4 (Sectional)', date: '12 Sep 2026', score: 102, totalMarks: 300, accuracy: 60, timeSpentMinutes: 176, scoreDelta: 11, physicsScore: 48, chemScore: 40, mathScore: 14 },
-  { id: 'mock-hist-5', mockName: 'JEE Main Mock #5', date: '21 Sep 2026', score: 105, totalMarks: 300, accuracy: 61, timeSpentMinutes: 178, scoreDelta: 3, physicsScore: 50, chemScore: 42, mathScore: 13 },
-  { id: 'mock-hist-6', mockName: 'JEE Main Mock #6', date: '29 Sep 2026', score: 110, totalMarks: 300, accuracy: 63, timeSpentMinutes: 175, scoreDelta: 5, physicsScore: 54, chemScore: 41, mathScore: 15 },
-  { id: 'mock-hist-7', mockName: 'JEE Main Mock #7', date: '03 Oct 2026', score: 104, totalMarks: 300, accuracy: 61, timeSpentMinutes: 179, scoreDelta: -6, physicsScore: 48, chemScore: 42, mathScore: 14 },
-  { id: 'mock-hist-8', mockName: 'JEE Main Mock #8 (Latest Baseline)', date: '07 Oct 2026', score: 112, totalMarks: 300, accuracy: 64, timeSpentMinutes: 177, scoreDelta: 8, physicsScore: 52, chemScore: 44, mathScore: 16 }
+  { id: 'mock-hist-1', mockName: 'JEE Main Mock #1 (Diagnostic)', date: '12 Aug 2026', score: 88, totalMarks: 300, accuracy: 52, percentile: 86.4, timeSpentMinutes: 172, scoreDelta: 0, physicsScore: 40, chemScore: 32, mathScore: 16 },
+  { id: 'mock-hist-2', mockName: 'JEE Main Mock #2', date: '22 Aug 2026', score: 94, totalMarks: 300, accuracy: 56, percentile: 88.1, timeSpentMinutes: 175, scoreDelta: 6, physicsScore: 44, chemScore: 36, mathScore: 14 },
+  { id: 'mock-hist-3', mockName: 'JEE Main Mock #3', date: '02 Sep 2026', score: 91, totalMarks: 300, accuracy: 54, percentile: 87.3, timeSpentMinutes: 180, scoreDelta: -3, physicsScore: 42, chemScore: 35, mathScore: 14 },
+  { id: 'mock-hist-4', mockName: 'JEE Main Mock #4 (Sectional)', date: '12 Sep 2026', score: 102, totalMarks: 300, accuracy: 60, percentile: 90.5, timeSpentMinutes: 176, scoreDelta: 11, physicsScore: 48, chemScore: 40, mathScore: 14 },
+  { id: 'mock-hist-5', mockName: 'JEE Main Mock #5', date: '21 Sep 2026', score: 105, totalMarks: 300, accuracy: 61, percentile: 91.2, timeSpentMinutes: 178, scoreDelta: 3, physicsScore: 50, chemScore: 42, mathScore: 13 },
+  { id: 'mock-hist-6', mockName: 'JEE Main Mock #6', date: '29 Sep 2026', score: 110, totalMarks: 300, accuracy: 63, percentile: 92.4, timeSpentMinutes: 175, scoreDelta: 5, physicsScore: 54, chemScore: 41, mathScore: 15 },
+  { id: 'mock-hist-7', mockName: 'JEE Main Mock #7', date: '03 Oct 2026', score: 104, totalMarks: 300, accuracy: 61, percentile: 91.0, timeSpentMinutes: 179, scoreDelta: -6, physicsScore: 48, chemScore: 42, mathScore: 14 },
+  { id: 'mock-hist-8', mockName: 'JEE Main Mock #8 (Latest Baseline)', date: '07 Oct 2026', score: 112, totalMarks: 300, accuracy: 64, percentile: 92.8, timeSpentMinutes: 177, scoreDelta: 8, physicsScore: 52, chemScore: 44, mathScore: 16 }
 ];
 
 export const MOCK_TESTS_LIBRARY: MockTestSummary[] = [
@@ -195,70 +196,83 @@ export const MOCK_TESTS_LIBRARY: MockTestSummary[] = [
     id: 'test-jee-09',
     title: 'JEE Main Mock #9 — Live Demo Examination',
     type: 'Full-Length',
-    questionsCount: 15, // Compact high-yield interactive set for demonstration
-    durationMinutes: 30, // Demo accelerated timer
+    questionsCount: 15,
+    durationMinutes: 30,
+    maxMarks: 60,
     difficulty: 'Moderate',
     status: 'Available',
-    description: 'Balanced 15-question demonstration paper covering Physics, Chemistry, and Mathematics with instant automated analysis.'
-  },
-  {
-    id: 'test-jee-08',
-    title: 'JEE Main Mock #8 (National Benchmarking)',
-    type: 'Full-Length',
-    questionsCount: 75,
-    durationMinutes: 180,
-    difficulty: 'Moderate',
-    status: 'Attempted',
-    lastScore: 112,
-    lastAttemptDate: '07 Oct 2026',
-    description: 'Official simulation paper. Basis of the current demo performance intelligence profile.'
+    description: 'Balanced 15-question demonstration paper covering Physics, Chemistry, and Mathematics with instant automated analysis.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
   },
   {
     id: 'test-math-sec',
     title: 'Mathematics Sectional: Calculus & Coordinate Geometry',
     type: 'Subject',
     subject: 'Mathematics',
-    questionsCount: 25,
-    durationMinutes: 60,
+    questionsCount: 10,
+    durationMinutes: 25,
+    maxMarks: 40,
     difficulty: 'Challenging',
     status: 'Available',
-    description: 'Targeted assessment focusing on Definite Integrals, Conics, and Differential Equations.'
+    description: 'Targeted assessment focusing on Definite Integrals, Conics, Probability, Matrices, and Differential Equations.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
   },
   {
     id: 'test-phys-sec',
     title: 'Physics Sectional: Mechanics & Electrodynamics',
     type: 'Subject',
     subject: 'Physics',
-    questionsCount: 25,
-    durationMinutes: 60,
+    questionsCount: 10,
+    durationMinutes: 25,
+    maxMarks: 40,
     difficulty: 'Moderate',
     status: 'Available',
-    description: 'Comprehensive sectional testing Rotational Dynamics, Electrostatics, and AC Circuits.'
+    description: 'Comprehensive sectional testing Kinematics, Rotational Dynamics, Electrostatics, AC Circuits, and Thermodynamics.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
   },
   {
     id: 'test-chem-sec',
     title: 'Chemistry Sectional: Organic & Physical Principles',
     type: 'Subject',
     subject: 'Chemistry',
-    questionsCount: 25,
-    durationMinutes: 50,
+    questionsCount: 10,
+    durationMinutes: 25,
+    maxMarks: 40,
     difficulty: 'Easy',
     status: 'Available',
-    description: 'Rapid-recall and numerical problem sets covering Reaction Mechanisms and Chemical Kinetics.'
+    description: 'Rapid-recall and numerical problem sets covering Reaction Mechanisms, Chemical Equilibrium, and Electrochemistry.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
   },
   {
     id: 'test-chap-integ',
     title: 'Chapter Sprint: Definite Integration Mastery',
     type: 'Chapter',
     subject: 'Mathematics',
-    questionsCount: 10,
-    durationMinutes: 25,
+    questionsCount: 5,
+    durationMinutes: 15,
+    maxMarks: 20,
     difficulty: 'Challenging',
     status: 'Available',
-    description: 'Diagnostic question set designed to isolate property integral errors.'
+    description: 'Diagnostic question set designed to isolate property integral errors, King\'s Property substitutions, and By-Parts traps.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
+  },
+  {
+    id: 'test-jee-08',
+    title: 'JEE Main Mock #8 (National Benchmarking)',
+    type: 'Full-Length',
+    questionsCount: 15,
+    durationMinutes: 30,
+    maxMarks: 60,
+    difficulty: 'Moderate',
+    status: 'Attempted',
+    lastScore: 112,
+    lastAttemptDate: '07 Oct 2026',
+    description: 'Official simulation benchmark. Basis of the current demo performance intelligence profile.',
+    markingScheme: { correct: 4, incorrect: -1, unattempted: 0 }
   }
 ];
 
+// Sample questions for Mock #9 (Full-length 15 questions)
 export const SAMPLE_QUESTIONS_MOCK_09: Question[] = [
   // Physics Questions (1 - 5)
   {
@@ -522,6 +536,141 @@ export const SAMPLE_QUESTIONS_MOCK_09: Question[] = [
   }
 ];
 
+// Sample questions for Mathematics Sectional
+export const SAMPLE_QUESTIONS_MATH_SEC: Question[] = [
+  SAMPLE_QUESTIONS_MOCK_09[10],
+  SAMPLE_QUESTIONS_MOCK_09[11],
+  SAMPLE_QUESTIONS_MOCK_09[12],
+  SAMPLE_QUESTIONS_MOCK_09[13],
+  SAMPLE_QUESTIONS_MOCK_09[14],
+  {
+    id: 'q-m6',
+    testId: 'test-math-sec',
+    questionNumber: 6,
+    subject: 'Mathematics',
+    topic: 'Integration (Definite & Indefinite)',
+    statement: 'Evaluate the value of the integral: I = ∫[-π/2 to π/2] (x³ + x cos x + tan⁵ x + 1) dx.',
+    options: [
+      { id: 'A', text: 'π' },
+      { id: 'B', text: '0' },
+      { id: 'C', text: 'π / 2' },
+      { id: 'D', text: '2π' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'The functions x³, x cos x, and tan⁵ x are all odd functions (f(-x) = -f(x)). Hence their integrals over symmetric limits [-π/2, π/2] evaluate to 0. Only the constant 1 is an even function: ∫[-π/2 to π/2] 1 dx = π/2 - (-π/2) = π.',
+    difficulty: 'Easy'
+  },
+  {
+    id: 'q-m7',
+    testId: 'test-math-sec',
+    questionNumber: 7,
+    subject: 'Mathematics',
+    topic: 'Coordinate Geometry & Conic Sections',
+    statement: 'The eccentricity e of the ellipse (x² / 16) + (y² / 9) = 1 is:',
+    options: [
+      { id: 'A', text: '√7 / 4' },
+      { id: 'B', text: '3 / 4' },
+      { id: 'C', text: '7 / 16' },
+      { id: 'D', text: '√5 / 4' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'Here a² = 16 and b² = 9. For an ellipse, b² = a²(1 - e²) => 9 = 16(1 - e²) => 1 - e² = 9/16 => e² = 7/16 => e = √7 / 4.',
+    difficulty: 'Easy'
+  },
+  {
+    id: 'q-m8',
+    testId: 'test-math-sec',
+    questionNumber: 8,
+    subject: 'Mathematics',
+    topic: 'Probability & Permutations',
+    statement: 'If P(A) = 0.4, P(B) = 0.5, and P(A ∩ B) = 0.2, what is P(A\' | B)?',
+    options: [
+      { id: 'A', text: '0.6' },
+      { id: 'B', text: '0.4' },
+      { id: 'C', text: '0.5' },
+      { id: 'D', text: '0.2' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'P(A | B) = P(A ∩ B) / P(B) = 0.2 / 0.5 = 0.4. Therefore P(A\' | B) = 1 - P(A | B) = 1 - 0.4 = 0.6.',
+    difficulty: 'Easy'
+  },
+  {
+    id: 'q-m9',
+    testId: 'test-math-sec',
+    questionNumber: 9,
+    subject: 'Mathematics',
+    topic: 'Differential Equations',
+    statement: 'The integrating factor (I.F.) of the linear differential equation (dy/dx) + y * cot x = 2 cos x is:',
+    options: [
+      { id: 'A', text: 'sin x' },
+      { id: 'B', text: 'cos x' },
+      { id: 'C', text: 'cosec x' },
+      { id: 'D', text: 'log sin x' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'Here P(x) = cot x. I.F. = e^(∫ P dx) = e^(∫ cot x dx) = e^(ln |sin x|) = sin x.',
+    difficulty: 'Easy'
+  },
+  {
+    id: 'q-m10',
+    testId: 'test-math-sec',
+    questionNumber: 10,
+    subject: 'Mathematics',
+    topic: 'Vector Algebra & 3D Geometry',
+    statement: 'If vector a = 2i + j - 2k and vector b = i + 2j + 2k, what is the angle between a and b?',
+    options: [
+      { id: 'A', text: 'cos⁻¹(0) = 90°' },
+      { id: 'B', text: 'cos⁻¹(1/3)' },
+      { id: 'C', text: '45°' },
+      { id: 'D', text: '60°' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'Dot product a · b = (2)(1) + (1)(2) + (-2)(2) = 2 + 2 - 4 = 0. Since a · b = 0, the angle between the two vectors is 90° (perpendicular).',
+    difficulty: 'Easy'
+  }
+].map((q, idx): Question => ({ ...q, subject: 'Mathematics' as Subject, testId: 'test-math-sec', questionNumber: idx + 1, difficulty: q.difficulty as 'Easy' | 'Medium' | 'Hard' }));
+
+// Sample questions for Chapter Sprint: Integration
+export const SAMPLE_QUESTIONS_CHAP_INTEG: Question[] = [
+  SAMPLE_QUESTIONS_MOCK_09[10],
+  SAMPLE_QUESTIONS_MOCK_09[11],
+  SAMPLE_QUESTIONS_MATH_SEC[5],
+  {
+    id: 'q-int-4',
+    testId: 'test-chap-integ',
+    questionNumber: 4,
+    subject: 'Mathematics',
+    topic: 'Integration (Definite & Indefinite)',
+    statement: 'Evaluate: I = ∫ [ 1 / (x * (ln x)³) ] dx.',
+    options: [
+      { id: 'A', text: '-1 / (2 (ln x)²) + C' },
+      { id: 'B', text: '1 / (2 (ln x)²) + C' },
+      { id: 'C', text: '-1 / (3 (ln x)²) + C' },
+      { id: 'D', text: 'ln(ln x) + C' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'Substitute t = ln x, then dt = (1/x) dx. The integral becomes ∫ t⁻³ dt = t⁻² / (-2) + C = -1 / (2 t²) + C = -1 / (2 (ln x)²) + C.',
+    difficulty: 'Easy'
+  },
+  {
+    id: 'q-int-5',
+    testId: 'test-chap-integ',
+    questionNumber: 5,
+    subject: 'Mathematics',
+    topic: 'Integration (Definite & Indefinite)',
+    statement: 'Find the derivative d/dx [ ∫[0 to x²] sin(t) dt ] using the Leibniz integral rule:',
+    options: [
+      { id: 'A', text: '2x * sin(x²)' },
+      { id: 'B', text: 'sin(x²)' },
+      { id: 'C', text: '2x * cos(x²)' },
+      { id: 'D', text: 'cos(x²)' }
+    ],
+    correctOptionId: 'A',
+    explanation: 'By the Leibniz Rule: d/dx [ ∫[a(x) to b(x)] f(t) dt ] = f(b(x)) * b\'(x) - f(a(x)) * a\'(x). Here b(x) = x², b\'(x) = 2x, a(x) = 0. Therefore derivative = sin(x²) * (2x) = 2x sin(x²).',
+    difficulty: 'Medium'
+  }
+].map((q, idx): Question => ({ ...q, subject: 'Mathematics' as Subject, testId: 'test-chap-integ', questionNumber: idx + 1, difficulty: q.difficulty as 'Easy' | 'Medium' | 'Hard' }));
+
 export const INITIAL_STUDY_TASKS: StudyTask[] = [
   {
     id: 'task-1',
@@ -637,7 +786,7 @@ export const INITIAL_AI_CHAT_MESSAGES = [
   {
     id: 'msg-1',
     sender: 'coach' as const,
-    text: 'Hello Aarav! I am your JEE InsightAI performance mentor (Prototype Mode). I have analyzed your recent Mock #8 (Score: 112/300) and historical attempts. Mathematics accuracy (51%) and specifically Integration (38%) present the highest leverage opportunity for your score growth. How can I assist your study session today?',
+    text: 'Hello Aarav! I am your JEE InsightAI performance mentor (Prototype Mode). I have evaluated your recent Mock #8 (Score: 112/300) and historical attempts. Mathematics accuracy (51%) and specifically Integration (38%) present the highest leverage opportunity for your score growth. How can I assist your study session today?',
     timestamp: '10:00 AM',
     actionSuggestions: [
       'Explain why my score changed',
@@ -645,6 +794,10 @@ export const INITIAL_AI_CHAT_MESSAGES = [
       'Explain my mistakes in Mock 8',
       'Create a seven-day revision plan',
       'Suggest a time-management strategy'
+    ],
+    actionLinks: [
+      { label: 'View Weak Concepts', page: 'weak-concepts' as const },
+      { label: 'Open Study Planner', page: 'study-planner' as const }
     ]
   }
 ];

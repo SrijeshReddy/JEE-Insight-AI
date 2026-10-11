@@ -541,3 +541,19 @@ table {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Smooth Page Transitions */
+.page-container {
+  animation: pageFadeIn 180ms ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0.88;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

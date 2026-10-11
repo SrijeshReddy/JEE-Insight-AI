@@ -19,6 +19,7 @@ export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<NavPage>('landing');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
+  const [isCbtTestActive, setIsCbtTestActive] = useState<boolean>(false);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [topicContext, setTopicContext] = useState<string | undefined>(undefined);
   const [activeAttemptId, setActiveAttemptId] = useState<string | undefined>(undefined);
@@ -46,14 +47,18 @@ export const App: React.FC = () => {
   };
 
   const handleNavigate = (page: NavPage, context?: string) => {
+    setIsCbtTestActive(false);
     setCurrentPage(page);
-    if (context) {
+    if (page === 'results' && context) {
+      setActiveAttemptId(context);
+    } else if (context) {
       setTopicContext(context);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleTestSubmitted = (attemptId: string) => {
+    setIsCbtTestActive(false);
     setActiveAttemptId(attemptId);
     setCurrentPage('results');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -62,6 +67,19 @@ export const App: React.FC = () => {
   // If on Landing Page, render the full public experience
   if (currentPage === 'landing') {
     return <LandingPage onNavigate={handleNavigate} />;
+  }
+
+  // If taking an active test, render full-screen distraction-free CBT exam
+  if (currentPage === 'mock-tests' && isCbtTestActive) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-app)' }}>
+        <MockTestsPage
+          onNavigate={handleNavigate}
+          onTestSubmitted={handleTestSubmitted}
+          onTestActiveChange={setIsCbtTestActive}
+        />
+      </div>
+    );
   }
 
   // Otherwise render platform shell with sidebar and topbar
@@ -97,6 +115,7 @@ export const App: React.FC = () => {
             <MockTestsPage
               onNavigate={handleNavigate}
               onTestSubmitted={handleTestSubmitted}
+              onTestActiveChange={setIsCbtTestActive}
             />
           )}
 

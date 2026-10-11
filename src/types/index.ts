@@ -44,6 +44,12 @@ export interface SubjectPerformance {
   avgTimeSeconds: number;
 }
 
+export interface MarkingScheme {
+  correct: number;       // default: +4
+  incorrect: number;     // default: -1
+  unattempted: number;   // default: 0
+}
+
 export interface MockTestSummary {
   id: string;
   title: string;
@@ -51,11 +57,13 @@ export interface MockTestSummary {
   subject?: Subject;
   questionsCount: number;
   durationMinutes: number;
+  maxMarks: number;
   difficulty: Difficulty;
   status: 'Attempted' | 'Available' | 'In Progress';
   lastScore?: number;
   lastAttemptDate?: string;
   description: string;
+  markingScheme: MarkingScheme;
 }
 
 export interface QuestionOption {
@@ -94,6 +102,8 @@ export interface TestAttemptResult {
   incorrectCount: number;
   unattemptedCount: number;
   accuracy: number;
+  percentile?: number;
+  markingScheme: MarkingScheme;
   responses: Record<string, QuestionResponse>;
   subjectBreakdown: Record<Subject, {
     score: number;
@@ -133,17 +143,20 @@ export interface StudyTask {
   priority: Priority;
   completed: boolean;
   reason: string;
+  isAutoRecommended?: boolean;
 }
 
 export interface ScoreScenarioSimulation {
   baselineScore: number;
-  mathAccuracyDelta: number; // e.g. +15%
-  chemAccuracyDelta: number; // e.g. +10%
-  negativeMarksSaved: number; // e.g. 5 questions not guessed blindly
-  extraWeeklyHours: number; // e.g. 4
+  mathAccuracyDelta: number;    // e.g. +15%
+  chemAccuracyDelta: number;    // e.g. +10%
+  physicsAccuracyDelta: number; // e.g. +10%
+  negativeMarksSaved: number;   // e.g. 5 questions not guessed blindly
+  extraWeeklyHours: number;     // e.g. 4
   speedOptimizationSec: number; // e.g. 20s
   estimatedScore: number;
   estimatedRankBand: string;
+  estimatedPercentile: string;
   scoreDelta: number;
   breakdown: {
     fromAccuracy: number;
@@ -161,6 +174,11 @@ export interface ChatMessage {
   timestamp: string;
   contextTopic?: string;
   actionSuggestions?: string[];
+  actionLinks?: {
+    label: string;
+    page: 'overview' | 'mock-tests' | 'results' | 'analytics' | 'weak-concepts' | 'study-planner' | 'score-simulator';
+    context?: string;
+  }[];
 }
 
 export interface HistoricalMockRecord {
@@ -170,9 +188,11 @@ export interface HistoricalMockRecord {
   score: number;
   totalMarks: number;
   accuracy: number;
+  percentile?: number;
   timeSpentMinutes: number;
   scoreDelta: number;
   physicsScore: number;
   chemScore: number;
   mathScore: number;
+  attemptId?: string;
 }
