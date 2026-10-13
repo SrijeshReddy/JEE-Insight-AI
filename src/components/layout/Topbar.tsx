@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Menu, Play, Moon, Sun, Info, X, Database, Cpu, Brain, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, Play, Moon, Sun, Info, X, Database, Cpu, Brain, CheckCircle2, ExternalLink } from 'lucide-react';
 import { NavPage } from './Sidebar';
+import { apiClient } from '../../services/apiClient';
 
 interface TopbarProps {
   currentPage: NavPage;
@@ -32,7 +33,31 @@ export const Topbar: React.FC<TopbarProps> = ({
   onToggleTheme
 }) => {
   const [showTransparencyModal, setShowTransparencyModal] = useState<boolean>(false);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
   const current = PAGE_TITLES[currentPage] || { title: 'JEE InsightAI', subtitle: '' };
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkConnection = async () => {
+      try {
+        const health = await apiClient.getHealth();
+        if (health && health.status === 'healthy' && isMounted) {
+          setBackendStatus('connected');
+        } else if (isMounted) {
+          setBackendStatus('offline');
+        }
+      } catch {
+        if (isMounted) setBackendStatus('offline');
+      }
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <>
@@ -87,6 +112,44 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Live Backend Connection Indicator */}
+          {backendStatus === 'connected' ? (
+            <a
+              href="http://127.0.0.1:8000/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="badge badge-success"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '11px',
+                padding: '4px 9px',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                borderRadius: '6px'
+              }}
+              title="FastAPI Backend Connected on http://127.0.0.1:8000 (Click to open Swagger control center)"
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--success)' }} />
+              <span>Backend Connected</span>
+              <ExternalLink size={10} />
+            </a>
+          ) : backendStatus === 'offline' ? (
+            <span
+              className="badge badge-warning"
+              style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 9px', borderRadius: '6px' }}
+              title="Backend offline. App is using local storage fallback."
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--warning)' }} />
+              <span>Local Offline Mode</span>
+            </span>
+          ) : (
+            <span className="badge badge-default" style={{ fontSize: '11px', padding: '4px 9px' }}>
+              Connecting...
+            </span>
+          )}
+
           {currentPage !== 'mock-tests' && currentPage !== 'results' && (
             <button
               onClick={() => onNavigate('mock-tests')}
