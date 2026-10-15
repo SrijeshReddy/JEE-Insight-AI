@@ -37,6 +37,21 @@ JEE Insight AI is built with a decoupled modern architecture combining a React 1
 
 ---
 
+## 🗺️ Project Roadmap & Stage Tracking
+
+| Stage | Focus Area | Technologies & Deliverables | Status |
+| :---: | :--- | :--- | :---: |
+| **Stage 1** | **System Blueprint & Requirements** | Pedagogical specs, 5-level taxonomy design, forensic diagnostic rules | **Completed** ✅ |
+| **Stage 2** | **Frontend Website & CBT Engine** | React 19, TypeScript, Vite 6, dark mode, CBT engine, results autopsy, study planner | **Completed** ✅ |
+| **Stage 3** | **Backend, Relational DB & Behavioral Engine** | FastAPI, SQLAlchemy, SQLite/PostgreSQL, authoritative scoring, invisible telemetry, 15 tests | **Completed & Verified** ✅ |
+| **Stage 4** | **Data Science, Analytics & ML** | Concept weakness analysis, Item Response Theory (IRT), rank & percentile predictive modeling | **Up Next** ⏳ |
+| **Stage 5** | **Real AI Coach (LLM Integration)** | Google Gemini API (`google-genai` SDK), Socratic guidance, error archetype remediation | **Pending** 📋 |
+| **Stage 6** | **Integration, Polish & Deployment** | End-to-end smoke testing, Docker containerization, final defense demonstration | **Pending** 📋 |
+
+*For complete stage-by-stage engineering plans, see [ROADMAP.md](ROADMAP.md).*
+
+---
+
 ## 🛠️ Full Tech Stack
 
 ### Frontend
