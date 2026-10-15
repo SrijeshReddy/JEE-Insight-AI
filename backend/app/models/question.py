@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from backend.app.database import Base
 
@@ -20,6 +20,18 @@ class QuestionModel(Base):
     negative_marks = Column(Float, nullable=False, default=-1.0)
     common_misconception = Column(Text, nullable=True)
     remember_rule = Column(Text, nullable=True)
+
+    # Enhanced PYQ & Question Bank Metadata
+    year = Column(Integer, nullable=True, index=True)
+    exam_session = Column(String(64), nullable=True)
+    shift = Column(String(64), nullable=True)
+    chapter = Column(String(128), nullable=True, index=True)
+    question_type = Column(String(32), nullable=True, default="single_correct")
+    numerical_answer = Column(String(64), nullable=True)
+    source_paper = Column(String(256), nullable=True)
+    is_pyq = Column(Integer, nullable=False, default=1)
+    verification_status = Column(String(32), nullable=False, default="VERIFIED")
+    diagram_data = Column(JSON, nullable=True)
 
     test = relationship("MockTestModel", back_populates="questions")
     options = relationship("QuestionOptionModel", back_populates="question", cascade="all, delete-orphan", order_by="QuestionOptionModel.option_key")

@@ -59,7 +59,14 @@
   - **Rule-Based Student Persona Classifier**: Empirical archetype assignment with supporting telemetry evidence.
   - **Centralized API Client**: `src/services/apiClient.ts` with transparent offline fallback.
   - **Live Connection Status**: `🟢 Backend Connected` badge in application header.
-  - **Automated Tests**: 15 passing integration tests (`backend/tests/`).
+  - **High-Quality Authentic PYQ Question Bank**:
+    - **2,241 Verified JEE Main Questions** imported across Physics (757), Chemistry (731), Mathematics (753).
+    - **193 Distinct Chapters & Topics** mapped with LaTeX math formulas, options, and step-by-step solutions.
+    - **5 Official 75-Question Mock Papers** (`pyq-jee-2020-p01` to `p12`) matching NTA 3-hour exam format.
+    - **Dynamic Practice Generator**: `POST /api/v1/tests/pyq/generate-practice` for customized drill tests.
+    - **Question Bank Search**: `GET /api/v1/tests/pyq/bank/search` with subject, chapter, and difficulty filters.
+    - **Provenanced & Licensed**: 100% legal CC-BY-4.0 open dataset (`soughed/jee-main-questions`).
+  - **Automated Tests**: 23 passing integration tests (`backend/tests/`).
   - **One-Click Launchers**: `start_all.bat`, `start_backend.bat`, `dev.bat`.
 
 ---

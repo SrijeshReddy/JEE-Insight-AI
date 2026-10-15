@@ -47,6 +47,7 @@ if not exist "backend\.venv\Scripts\python.exe" (
 :: 4. Seed Database if needed
 echo [*] Initializing database and ensuring taxonomy seed data...
 call backend\.venv\Scripts\python.exe -m backend.app.seed.seeder
+call backend\.venv\Scripts\python.exe backend\app\seed\pyq_importer.py
 
 :: 5. Start Uvicorn Server
 echo.

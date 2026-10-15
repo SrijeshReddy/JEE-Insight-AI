@@ -1,0 +1,25 @@
+{
+  "total_records": 2241,
+  "verified_records": 1962,
+  "needs_review_records": 279,
+  "subject_distribution": {
+    "Chemistry": 731,
+    "Mathematics": 753,
+    "Physics": 757
+  },
+  "difficulty_distribution": {
+    "Medium": 1476,
+    "Hard": 379,
+    "Easy": 386
+  },
+  "question_type_distribution": {
+    "single_correct": 1727,
+    "numerical": 514
+  },
+  "year_distribution": {
+    "2021": 446,
+    "2020": 1795
+  },
+  "total_distinct_chapters": 193,
+  "normalized_file": "data/question_bank/processed/jee_main_pyqs_normalized.jsonl"
+}

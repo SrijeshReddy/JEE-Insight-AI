@@ -1,0 +1,49 @@
+{
+  "dataset_name": "soughed/jee-main-questions",
+  "total_records": 2241,
+  "unique_identifiers": 2241,
+  "duplicate_id_count": 0,
+  "repeated_question_text_occurrences": 84,
+  "subject_distribution": {
+    "Chemistry": 731,
+    "Mathematics": 753,
+    "Physics": 757
+  },
+  "year_distribution": {
+    "2020": 1795,
+    "2021": 446
+  },
+  "session_distribution": {
+    "Jan Session": 446,
+    "Nov Session": 594,
+    "Dec Session": 404,
+    "Official PYQ Series": 350,
+    "Oct Session": 447
+  },
+  "shift_distribution": {
+    "Shift 1": 1459,
+    "Full Subject Test": 209,
+    "Shift 2": 474,
+    "Shift 3": 50,
+    "Shift 4": 49
+  },
+  "question_type_distribution": {
+    "single_correct": 1727,
+    "numerical": 514
+  },
+  "difficulty_distribution": {
+    "Medium": 1476,
+    "Hard": 379,
+    "Easy": 386
+  },
+  "total_chapters_covered": 194,
+  "total_topics_covered": 198,
+  "verified_questions_count": 1962,
+  "needs_review_count": 279,
+  "missing_answers_count": 0,
+  "missing_explanations_count": 323,
+  "diagram_dependent_questions": 1344,
+  "missing_diagrams_count": 0,
+  "malformed_records_count": 0,
+  "provenance_verified_count": 2241
+}

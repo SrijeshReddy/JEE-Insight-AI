@@ -25,6 +25,18 @@ class QuestionSchema(BaseModel):
     commonMisconception: Optional[str] = None
     rememberRule: Optional[str] = None
 
+    # PYQ Metadata
+    year: Optional[int] = None
+    examSession: Optional[str] = Field(None, alias="examSession")
+    shift: Optional[str] = None
+    chapter: Optional[str] = None
+    questionType: Optional[str] = Field("single_correct", alias="questionType")
+    numericalAnswer: Optional[str] = Field(None, alias="numericalAnswer")
+    sourcePaper: Optional[str] = Field(None, alias="sourcePaper")
+    isPyq: Optional[bool] = Field(True, alias="isPyq")
+    verificationStatus: Optional[str] = Field("VERIFIED", alias="verificationStatus")
+    diagramData: Optional[dict] = Field(None, alias="diagramData")
+
     model_config = {
         "from_attributes": True,
         "populate_by_name": True
@@ -41,6 +53,9 @@ class QuestionClientView(BaseModel):
     statement: str
     options: List[QuestionOptionSchema]
     difficulty: str
+    chapter: Optional[str] = None
+    questionType: Optional[str] = Field("single_correct", alias="questionType")
+    diagramData: Optional[dict] = Field(None, alias="diagramData")
 
     model_config = {
         "from_attributes": True,
